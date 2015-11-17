@@ -1,3 +1,4 @@
+
 Harmonization field names
 =========================
 
@@ -34,18 +35,25 @@ Harmonization field names
 |Event_Description|event_description.url|URL|A description URL is a link to a further description of the the abuse event in question.|
 ||event_hash|String|Computed event hash with specific keys and values that identify a unique event. At present, the hash should default to using the SHA1 function. Please note that for an event hash to be able to match more than one event (deduplication) the receiver of an event should calculate it based on a minimal set of keys and values present in the event. Using for example the observation time in the calculation will most likely render the checksum useless for deduplication purposes.|
 ||extra|String|All anecdotal information, which cannot be parsed into the data harmonization elements. E.g. os.name, os.version, user_agent. TODOs: Must be JSON encoded for machine readability.|
+|Feed|feed.accuracy|Accuracy|A float between 0 and 100 that represents how accurate the data in the feed is|
 |Feed|feed.code|String|Code name for the feed, e.g. DFGS, HSDAG etc.|
 |Feed|feed.name|String|Name for the feed, usually found in collector bot configuration.|
 |Feed|feed.url|URL|The URL of a given abuse feed, where applicable|
 |Malware|malware.hash|String|A string depicting a checksum for a file, be it a malware sample for example. Includes hash type according to https://en.wikipedia.org/wiki/Crypt_%28C%29|
+|Malware Hash|malware.hash.md5|String|A string depicting a MD5 checksum for a file, be it a malware sample for example. Includes hash type according to https://en.wikipedia.org/wiki/Crypt_%28C%29|
+|Malware Hash|malware.hash.sha1|String|A string depicting a SHA1 checksum for a file, be it a malware sample for example. Includes hash type according to https://en.wikipedia.org/wiki/Crypt_%28C%29|
 |Malware|malware.name|MalwareName|A malware family name in lower case.|
 |Malware|malware.version|String|A version string for an identified artifact generation, e.g. a crime-ware kit.|
 ||misp_uuid|UUID|MISP - Malware Information Sharing Platform & Threat Sharing UUID.|
+||notify|Boolean|If mail will be sent out to affected or responsible contact.|
 |Protocol|protocol.application|String|e.g. vnc, ssh, sip, irc, http or p2p.|
 |Protocol|protocol.transport|String|e.g. tcp, udp, icmp.|
 ||raw|Base64|The original line of the event from encoded in base64.|
-||rtir_id|Integer|Request Tracker Incident Response incident id.|
+||rtir_incident_id|Integer|Request Tracker Incident Response incident id.|
+||rtir_investigation_id|Integer|Request Tracker Incident Response investigation id.|
+||rtir_report_id|Integer|Request Tracker Incident Response incident report id.|
 ||screenshot_url|URL|Some source may report URLs related to a an image generated of a resource without any metadata. Or an URL pointing to resource, which has been rendered into a webshot, e.g. a PNG image and the relevant metadata related to its retrieval/generation.|
+||sent_at|DateTime|Time when the report has been sent to the responsible recipient.|
 |Source|source.abuse_contact|String|Abuse contact for source address. TODO: list?|
 |Source|source.account|String|An account name or email address, which has been identified to relate to the source of an abuse event.|
 |Source|source.allocated|DateTime|Allocation date corresponding to bgp prefix.|
@@ -79,6 +87,12 @@ Harmonization types
 -------------------
 
 
+### Accuracy
+
+Accuracy type. A Float between 0 and 100.
+
+
+
 ### Base64
 
 Base64 type. Always gives unicode strings.
@@ -87,7 +101,6 @@ Sanitation encodes to base64 and accepts binary and unicode strings.
 
 
 
-### Boolean
 
 Boolean type. Without sanitation only python bool is accepted.
 
