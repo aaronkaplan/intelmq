@@ -3,9 +3,10 @@
 ## Botnet concepts
 
 * **botnet:** botnet is a concept which have the following principles:
-1. botnet is a group of bots which are configured with a parameter `botnet: True`.
-2. IntelMQ system provides a mechanism to execute just in one command (e.g start/stop/restart/reload/status) actions to all bots which belong to botnet (independently of the `run_mode` parameter). Please check additional information related to this process on each botnet action.
-2. all bots that belong to botnet will automatically be started on boot. This means that stream and scheduled bots will behave as normal: stream run indefinitely and scheduled bots will be properly defined on crontab in order to be ready to start on the scheduled time defined in runtime configuration.
+
+ - *. botnet is a group of bots which are configured with a parameter `botnet: True`.
+ - * IntelMQ system provides a mechanism to execute just in one command (e.g start/stop/restart/reload/status) actions to all bots which belong to botnet (independently of the `run_mode` parameter). Please check additional information related to this process on each botnet action.
+ - * all bots that belong to botnet will automatically be started on boot. This means that stream and scheduled bots will behave as normal: stream run indefinitely and scheduled bots will be properly defined on crontab in order to be ready to start on the scheduled time defined in runtime configuration.
 
 
 ## Runtime configuration concepts
