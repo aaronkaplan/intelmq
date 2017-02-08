@@ -1,11 +1,38 @@
+# TODOs:
+* Do replace `user` to `admin`
+
 
 
 # Proposal
 
 ## Definitions
 
+### Configurations
+
 * **user runtime configuration:** `runtime.conf`, a configuration file used by user to configure bots and also used by intelmqctl to manage the bots.
 * **internal runtime configuration:** `.runtime.conf`, a hidden configuration file only used by intelmqctl to track the last successfully configuration used to run bot(s). This file is located in same directory as user runtime configuration.
+
+Having two runtime configurations as mentioned before is important to scenarios such as:
+
+1. Admin execute the command to start the botnet. In this case there are 10 bots configured as `botnet: True`.
+2. Admin accidently remove mannually a bot with `bot_id: my-bot-1` from user runtime configuration without stopping it previously.
+3. Admin add mannually a new bot with `bot_id: my-bot-2` to user runtime configuration.
+4. Admin execute the command to start the botnet which will do the following:
+ 1. do nothing to the bots which were already started in the first execution of the command to start the botnet
+ 2. start normally the `bot_id: my-bot-2`
+ 3. will let the `bot_id: my-bot-1` running but will also add the configuration stored in internal runtime configuration to the user runtime configuration in order to prevent possible lost of bot configuration by this user mistake. The correct procedure is stop bot first and then remove bot configuration from user runtime configuration.
+
+
+### Botnet
+
+* **botnet:** botnet is bla bla bla
+
+### Configuration
+
+In order to keep track of bots that are running and their configurations, `intelmqctl` will always keep a currently running state version of user runtime configuration which is always generated after every `intelmqctl` action command such as `start`, `stop`, etc. In an user perspective, there is no need to be aware of this because is just an internal file used by intelmqctl.
+
+
+
 
 ## Configurations Required
 ```
@@ -21,11 +48,6 @@
 
 
 ## IntelMQ Principles
-
-### Configuration
-
-In order to keep track of bots that are running and their configurations, `intelmqctl` will always keep a stable version of user runtime configuration which is always generated after every `intelmqctl` action command such as `start`, `stop`, etc. In an user perspective, there is no need to be aware of this because is just an internal file used by intelmqctl.
-
 
 ## Bot commands
 
@@ -43,7 +65,7 @@ intelmqctl start `<bot_id>`
 
 **General procedure:**
 
-The command looks at both internal runtime configuration and user runtime configuration to decide which bots MUST start. This check is important to scenarios such as a bot configuration was removed from user runtime configuration but the bot stills run, therefore is still configured in internal runtime configuration. For this specific scenario, in order to prevent possible lost of bot configuration by user mistake (e.g. deleting bot configuration accidently), the bot will keep running normally, using the internal runtime configuration, but in addition the user runtime configuration will be updated, adding the bot configuration that was removed but stored in internal runtime configuration.
+The command looks at both internal runtime configuration and user runtime configuration to decide which bots MUST start.
     
     stream
         PID - execute bot and write PID file
