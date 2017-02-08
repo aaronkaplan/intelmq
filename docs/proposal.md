@@ -1,80 +1,89 @@
-# TODOs:
-* Do replace `user` to `admin`
+# Definitions
+
+## Botnet concepts
+
+* **botnet:** botnet is a concept which have the following principles:
+1. botnet is a group of bots which are configured with a parameter `botnet: True`.
+2. IntelMQ system provides a mechanism to execute just in one command (e.g start/stop/restart/reload/status) actions to all bots which belong to botnet (independently of the `run_mode` parameter). Please check additional information related to this process on each botnet action.
+2. all bots that belong to botnet will automatically be started on boot. This means that stream and scheduled bots will behave as normal: stream run indefinitely and scheduled bots will be properly defined on crontab in order to be ready to start on the scheduled time defined in runtime configuration.
 
 
+## Runtime configuration concepts
 
-# Proposal
-
-## Definitions
-
-### Configurations
-
+* **runtime configuration:** term to mention the configuration file of the bots without specifying if internal or admin runtime configuration because is not required for the explanation since it's transversal.
 * **user runtime configuration:** `runtime.conf`, a configuration file used by user to configure bots and also used by intelmqctl to manage the bots.
-* **internal runtime configuration:** `.runtime.conf`, a hidden configuration file only used by intelmqctl to track the last successfully configuration used to run bot(s). This file is located in same directory as user runtime configuration.
+* **internal runtime configuration:** `.runtime.conf`, a hidden configuration file only used by intelmqctl to track the last successfully configuration used to run bot(s). This file is located in same directory as admin runtime configuration.
 
 Having two runtime configurations as mentioned before is important to scenarios such as:
 
 1. Admin execute the command to start the botnet. In this case there are 10 bots configured as `botnet: True`.
-2. Admin accidently remove mannually a bot with `bot_id: my-bot-1` from user runtime configuration without stopping it previously.
-3. Admin add mannually a new bot with `bot_id: my-bot-2` to user runtime configuration.
+2. Admin accidently remove mannually a bot with `bot_id: my-bot-1` from admin runtime configuration without stopping it previously.
+3. Admin add mannually a new bot with `bot_id: my-bot-2` to admin runtime configuration.
 4. Admin execute the command to start the botnet which will do the following:
  1. do nothing to the bots which were already started in the first execution of the command to start the botnet
  2. start normally the `bot_id: my-bot-2`
- 3. will let the `bot_id: my-bot-1` running but will also add the configuration stored in internal runtime configuration to the user runtime configuration in order to prevent possible lost of bot configuration by this user mistake. The correct procedure is stop bot first and then remove bot configuration from user runtime configuration.
+ 3. will let the `bot_id: my-bot-1` running but will also add the configuration stored in internal runtime configuration to the admin runtime configuration in order to prevent possible lost of bot configuration by this user mistake.
+ 4. will log a message providing information to the admin explaining the procedure followed.
+
+ The correct procedure is stop bot first and then remove bot configuration from admin runtime configuration.
 
 
-### Botnet
-
-* **botnet:** botnet is bla bla bla
-
-### Configuration
-
-In order to keep track of bots that are running and their configurations, `intelmqctl` will always keep a currently running state version of user runtime configuration which is always generated after every `intelmqctl` action command such as `start`, `stop`, etc. In an user perspective, there is no need to be aware of this because is just an internal file used by intelmqctl.
+**Note:** as mentioned on this section, in order to keep track of bots that are running and their configurations, `intelmqctl` will always keep a currently running state version of admin runtime configuration which is always generated after every `intelmqctl` action command such as `start`, `stop`, etc. However, from an user perspective, there is no need to be aware of this because is just an internal file used by intelmqctl to manage the system and everytime it requires action will ask the user.
 
 
+## Runtime configuration parameters
+
+* **`botnet: True`** is a parameter on configuration per each bot to define is a bot is part of the botnet or not
+* **`onboot`**: TBD
+* **`process_manager`**: TBD
+* **`run_mode: <scheduled/stream>`** is a parameter on configuration per each bot to define how bot should run.
+ - **`stream`:** run indefintely
+ - **`scheduled`:** use crontab to start on a specific schedule time (`schedule_time` parameter).
+* **`schedule_time`:** is a parameter on configuration, only applicable to bots configured as `scheduled` run mode, to define when the bot MUST start and run one time successfully and then exit.
 
 
-## Configurations Required
-```
-{
-    init_system: `<intelmq / systemd>`
-    run_mode: `<stream / scheduled>`
-    scheduled_time: "* * * * *"
-    botnet: True/False
-    onboot: True/False
-}
-```
-**Note:** `enable` parameter as implemented in the current version of IntelMQ was removed in this proposal and was replaced by `botnet` parameter. Please see 'Overview' in 'Botnet Commands' section.
-
-
-## IntelMQ Principles
-
-## Bot commands
+# Bot commands
 
 Bot commands are commands which can only apply to one bot therefore requires a `<bot_id>`. The commands start/stop/restart/reload/status are the usual commands, however there are more commands implemented such as `enable`, `disable`, `add-to-botnet`, `remove-from-botnet`, `debug` and `scheduler-exec` which have a specific context explained in the following description of each command.
 
 
-### Usual commands
+## Usual commands
 
-#### intelmqctl start `<bot_id>`
+### intelmqctl start `<bot_id>`
 
-**Command:**
+#### Command
+
 ```
 intelmqctl start `<bot_id>`
 ```
 
-**General procedure:**
+#### General procedure
 
-The command looks at both internal runtime configuration and user runtime configuration to decide which bots MUST start.
+`intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
     
-    stream
-        PID - execute bot and write PID file
-        SYSTEMMD - execute `systemctl start <module@bot_id>`
-    scheduled
+#### Specific procedure
+
+* **Run mode: stream**
+ - **Process manager: PID** - execute bot and write PID file
+ - **Process manager: systemd** - execute `systemctl start <module@bot_id>`
+* **Run mode: scheduled**
         add config line on crontab with `intelmqctl scheduler-exec <bot_id>` (message: bot is schedule and will run at `* * * * * `)
 
-intelmqctl stop `<bot_id>`
+### intelmqctl stop `<bot_id>`
+
+
     In case that the bot configuration was removed from the runtime.conf and is still running, the bot will be stopped using the old `.runtime.conf` and additionally the runtime configuration of the (previously removed) bot will be again written to the current `runtime.conf`. The principle here is the user first MUST to stop and then remove the configuration, not the opposite.
+
+#### Command
+
+```
+intelmqct stop <bot_id>
+```
+
+#### General procedure
+
+
+#### Specific procedure
 
     stream
         PID - send SIGKILL to bot and remove PID file
@@ -188,11 +197,6 @@ intelmqctl scheduler-exec `<bot_id>`
 # Botnet commands
 
 ## Overview
-
-Principle: botnet concept means two things:
-1. botnet is a group of bots which are configured with a parameter `botnet: True`.
-2. IntelMQ system provides a mechanism to execute just in one command (e.g start/stop/restart/reload/status) all actions to all bots which belong to botnet (independently of the `run_mode` parameter). Please check additional information related to this process on each botnet action.
-2. all bots that belong to botnet will automatically be started on boot. This means that stream and scheduled bots will behave as normal: stream run indefinitely and scheduled bots will be properly defined on crontab in order to be ready to start on the scheduled time defined in runtime configuration.
 
 Only bots which are part of the botnet can be start/stop/restart/reload/status with botnet commands. Also, botnet concept also assumes that all bots which belong to botnet will start on-boot in case operating system start/restarts. Please note that if IntelMQ is configured with `init_system: intelmq`, botnet cannot start on-boot because it relies on PID files, not on init system management like systemd.
 
