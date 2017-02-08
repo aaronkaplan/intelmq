@@ -15,7 +15,7 @@
 * **internal runtime configuration:** `.runtime.conf`, a hidden configuration file only used by intelmqctl to track the last successfully configuration used to run bot(s). This file is located in same directory as admin runtime configuration.
 * **defaults configuration:** TBD
 
-Having two runtime configurations as mentioned before is important to scenarios such as:
+Having two runtime configurations as mentioned before is important to scenarios that are present in the following sub-sections. **Please note** that these sub-sections intend to give to the admin a better understanding of how and why intelmqctl keep track of bots that are running and their configurations. The quick explanation is `intelmqctl` will always keep a currently running state version of admin runtime configuration on a specific file named accordingly to definitions section, internal runtime configuration,  which is always generated after every `intelmqctl` action command such as `start`, `stop`, etc. **However**, from a usual admin perspective, there is no need to be aware of this because is just an internal file and an internal procedure used by intelmqctl to manage the system. In situations where intelmqctl detects some insconsitence in the current running state and the admin runtime configuration, intelmqctl will require action from admin if intelmqctl is being run in interactive mode or if not, will be available the possibility to specify flags to automatically perform the actions without need interaction.
 
 ### Scenario 1 - botnet start command after bot configuration was manually removed
 
@@ -48,9 +48,6 @@ Please note that this scenario is using botnet commands, therefore, it's crutial
  4. log a warning message providing information to the admin explaining the situation: "intelmqctl detected that bot my-bot-1 is was running but has been removed from user runtime configuration. intelmqctl stopped it and added it to the admin runtime configuration. Please first stop the bot, and remove it afterwards.".
 
 The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
-
-
-**Note:** as mentioned on this section, in order to keep track of bots that are running and their configurations, `intelmqctl` will always keep a currently running state version of admin runtime configuration which is always generated after every `intelmqctl` action command such as `start`, `stop`, etc. However, from an user perspective, there is no need to be aware of this because is just an internal file used by intelmqctl to manage the system and every time it requires action will ask the user.
 
 
 ## Runtime configuration parameters
@@ -91,7 +88,7 @@ intelmqctl start `<bot_id>`
   - **Process manager: PID**
     - intelmqctl will check if there is a PID file
     - if PID file exists, do nothing
-    - if PID file does not exit, execute start action on bot and write PID file
+    - if PID file does not exist, execute start action on bot and write PID file
   - **Process manager: systemd**
     - execute `systemctl start <module@bot_id>`
 * **Run mode: scheduled**
@@ -105,7 +102,7 @@ intelmqctl start `<bot_id>`
 #### Command
 
 ```
-intelmqct stop <bot_id>
+intelmqct stop `<bot_id>`
 ```
 
 #### General procedure
@@ -120,7 +117,7 @@ intelmqct stop <bot_id>
   - **Process manager: PID**
     - intelmqctl will check if there is a PID file
     - if PID file exists, execute stop action on the bot and remove PID file
-    - if PID file does not exit, do nothing
+    - if PID file does not exist, do nothing
   - **Process manager: systemd**
     - execute `systemctl stop <module@bot_id>`
 * **Run mode: scheduled**
@@ -158,52 +155,99 @@ intelmqctl reload `<bot_id>`
 
 #### Specific procedure
 
-* `intelmqctl` will start doing multiple checks in order to prevent tracking issues and other possible issues related to correct procedures which are not being followed by admin. The checks will be described in this section. 
+* `intelmqctl` will start perform multiple checks in order to prevent tracking issues and other possible issues related to correct procedures which are not being followed by admin. The checks will be described in this section. 
 
 * **Please note** that the explanation is exemplifying an interactive mode of intelmqctl, however, there will be available additional parameters to automatically answer the questions which will allow to execute this command by scripts or other tools.
 
+
+* **Checks:**
+
+    ------ begin MOVE THIS TO CONFIGURATION CONCEPTS section and adapt to a scenario
+
     * if `<bot_id>` is removed from admin runtime configuration AND `<bot_id>` is running (**Note: this check will mostly useful for the botnet command `intelmqctl reload`, please see botnet reload command for more details.**):
       - raise message "`<bot_id>` is no longer on runtime configuration therefore cannot be reload. Do you want to stop it? [N/y]" \
-      - "[Y] intelmqctl will remove the bot from runtime configuration (internal and admin configurations), from crontab (if applicable) and stop the bot accordingly." \
-      - "[N] intelmqctl will add the configuration stored in internal runtime configuration to the admin runtime configuration in order to keep the admin runtime configuration up to date accordingly.
+        - "[Y] intelmqctl will remove the bot from runtime configuration (internal and admin configurations), from crontab (if applicable) and stop the bot accordingly." \
+        - "[N] intelmqctl will add the configuration stored in internal runtime configuration to the admin runtime configuration in order to keep the admin runtime configuration up to date accordingly.
+
+    ------ end MOVE THIS TO CONFIGURATION CONCEPTS section
 
     * if `<bot_id>` has a new `run_mode` value AND `<bot_id>` is running:
-        raise message "`<bot_id>` is configured with a new `run_mode` therefore cannot be reload and it needs to be restarted in order to reload the new configuration." \
-        "Do you want to restart the bot to apply the new `run_mode`? [Y/n]" \
-        "[Y] `intelmqctl` will automatically execute restart action on the bot and the bot will start with the new configuration" \
-        "[N] `intelmqctl` will remove and ignore the new `run_mode` value and will add to the configuration the current bot `run_mode`"
+      - raise message "`<bot_id>` is configured with a new `run_mode` therefore cannot be reload and it requires to be restarted in order to reload the new configuration. Do you want to restart the bot to apply the new `run_mode`? [Y/n]"
+        - "[Y] `intelmqctl` will automatically execute restart action on the bot and the bot will start with the new configuration" \
+        - "[N] `intelmqctl` will not perform any action, therefore bot will keep running in the current run state.
 
-    stream
-        PID - bot reload config
-        SYSTEMD - execute `systemctl reload `<module@bot_id>`
-    scheduled
-        send SIGHUP to `intelmqctl scheduler-exec <bot_id>`??!?!?! or send a message saying that will only apply to the next execution if there is current one executing.
-        check specific scheduled configuration and compare with current one, change it if needs (may be the best thing is just overwrite)
+* **Run mode: stream**
+  - **Process manager: PID**
+    - intelmqctl will check if there is a PID file
+    - if PID file exists, execute reload action on the bot
+    - if PID file does not exist, do nothing
+  - **Process manager: systemd**
+    - execute `systemctl reload <module@bot_id>` (this action will be automatically specified in systemd template service file)
+* **Run mode: scheduled**
+    - intelmqctl will check if crontab configuration line for the bot is still on crontab:
+      - if crontab configuration line exists, replate it and log a message explaining the update action.
+      - if crontab configuration line does not exists, add it and log a message explaining the update action.
+    TBD: dont know what should be our procedure if a scheduled bot is running when this reload action is performing. Should reload normally like stream bots? should we just ignore it? log a message about this "finding"?
 
-    Note: in case run_mode changes, it will require a restart, therefore, nothing should be done except raise a message "run_mode was changed, reload command cannot perform. Please restart the bot to change the run_mode and reload with other possible configurations"
+### intelctl status `<bot_id>`
 
+#### Command
+```
 intelctl status `<bot_id>`
+```
+
+#### General procedure
+
+* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
+* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
+
+    ---- begin CREATE A NEW SCENARIO FOR BOTS REMOVED FROM ADMIN RUNTIME CONFIGURATION AND THEN BOTNET STATUS WAS PERFORMED. THATS WHY I ADDED A NEW COLLUMN TO STATUS OUTPUT
+
+
+#### Specific Procedure
+
     stream
         PID - check if pid exists
         SYSTEMD - execute `systemctl status `<module@bot_id>`
     scheduled
         check if crontab bot configuration is on crontab
 
-    PRINT bot_id | run_mode | scheduled_time (if applicable) | is on botnet | status | enabled_on_boot
+    PRINT bot_id | run_mode | scheduled_time (if applicable) | is on botnet | status | enabled_on_boot | configtest
     PRINT last 10 log lines
+
+* **Run mode: stream**
+  - **Process manager: PID**
+    - intelmqctl will check if there is a PID file
+      - if PID file exists, log message saying the current status is "Active"
+      - if PID file does not exists, log message saying the current status is "Inactive"
+  - **Process manager: systemd**
+    - execute `systemctl status <module@bot_id>`
+* **Run mode: scheduled**
+    - intelmqctl will check if bot is configured on crontab
+      - if configured on crontab, log message saying the current status is "Active"
+      - if not configured on crontab, log message saying the current status is "Inactive"
 
 
 ### On-boot related commands
 
-intelmqctl enable <bot-id>
+intelmqctl enable `<bot-id>`
+    
     put parameter `onboot: True`
+    
+    if systemd, execute systemctl enable
 
-intelmqctl disable <bot-id>
+    if intelmq, put @reboot on crontab - WHICH IS CRAZY CONFIGURATION, SO, WE NEED TO THINK HOW TO CONFIGURE IT IN NICE WAY IN CRONTAB, btw, cannot be `intelmqctl start` because this will start all botnet,even if there is bots with `onboot: false`. However, we can add a flag like `intelmqctl start --onboot` BUT, this parameter will only be applicable to intelmq process manager, which creates another variable that admins need to know, WHICH IS BAD! SO, cant see now good solution.
+    if 
+
+intelmqctl disable `<bot-id>`
     put parameter `onboot: False`
 
 ### Botnet related commands
 
 intelmqctl add-to-botnet `<bot_id>`
+
+**QUESTION:** admin runs `botnet start` which starts all bots configured as being part of the botnet. Then, admin add a bot to the botnet. What should be the behavior? Should the bot automatically start and `botnet: true` OR should just change the `botnet: true` without starting it???
+
     stream
         PID - change botnet parameter to True
         SYSTEMD - change botnet parameter to True and execute `systemctl enable <module@bot_id.service>` (belonging to botnet also means enable on-boot except if `init_system: intelmq`)
@@ -306,7 +350,7 @@ intelmqctl reload
     iterate over all bots in .runtime.conf with `botnet: True` and for each one execute `intelmqctl reload `<bot_id>`
 
 intelmqctl status
-    bot_id | run_mode | scheduled_time (if applicable) | is on botnet | status | enabled_on_boot
+    bot_id | run_mode | scheduled_time (if applicable) | is on botnet | status | enabled_on_boot | configtest
 
 
 # On-boot commands
