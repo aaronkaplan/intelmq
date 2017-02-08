@@ -2,11 +2,10 @@
 
 ## Botnet concepts
 
-**botnet:** botnet is a concept which have the following principles:
+**botnet:** is a concept which have the following principles:
 
 * botnet is a group of bots which are configured with a parameter `botnet: True`.
 * IntelMQ system provides a mechanism to execute just in one command (e.g start/stop/restart/reload/status) actions to all bots which belong to botnet (independently of the `run_mode` parameter). Please check additional information related to this process on each botnet action.
-* all bots that belong to botnet will automatically be started on boot. This means that stream and scheduled bots will behave as normal: stream run indefinitely and scheduled bots will be properly defined on crontab in order to be ready to start on the scheduled time defined in runtime configuration.
 
 
 ## Configuration concepts
@@ -18,16 +17,37 @@
 
 Having two runtime configurations as mentioned before is important to scenarios such as:
 
+### Scenario 1 - botnet start command after bot configuration was manually removed
+
+Please note that this scenario is using botnet commands, therefore, it's crutial to have a good understand about botnet concept. Also, every single mentioned to "bots", except mentioned explicity, means bots which are part of the botnet.
+
 1. Admin execute the command to start the botnet. In this case there are 10 bots configured as `botnet: True`.
 2. Admin accidentally remove manually a bot with `bot_id: my-bot-1` from admin runtime configuration without stopping it previously.
 3. Admin add manually a new bot with `bot_id: my-bot-2` to admin runtime configuration.
 4. Admin execute the command to start the botnet which will do the following:
  1. do nothing to the bots which were already started in the first execution of the command to start the botnet
- 2. start normally the `bot_id: my-bot-2` and intelmqctl will update the internal runtime configuration accordingly.
- 3. will let the `bot_id: my-bot-1` running but will also add the configuration stored in internal runtime configuration to the admin runtime configuration in order to prevent possible loss of bot configuration by this user mistake.
- 4. will log a warning message providing information to the admin explaining the situation: "intelmqctl detected that bot my-bot-1 is still running but has been removed from user runtime configuration. intelmqctl added it to the user runtime configuration. Please first stop the bot, and remove it afterwards.".
+ 2. execute start command following normal procedure to the `bot_id: my-bot-2` and intelmqctl will update the internal runtime configuration accordingly.
+ 3. keep the bot with `bot_id: my-bot-1` running but will also add the configuration stored in internal runtime configuration to the admin runtime configuration in order to prevent possible loss of bot configuration by this user mistake (not following the correct procedure).
+ 4. log a warning message providing information to the admin explaining the situation: "intelmqctl detected that bot my-bot-1 is still running but has been removed from user runtime configuration. intelmqctl added it to the user runtime configuration. Please first stop the bot, and remove it afterwards.".
 
-The correct procedure is stop bot first and then remove bot configuration from admin runtime configuration.
+The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
+
+### Scenario 2 - botnet stop command after bot configuration was manually removed
+
+Please note that this scenario is using botnet commands, therefore, it's crutial to have a good understand about botnet concept. Also, every single mentioned to "bots", except mentioned explicity, means bots which are part of the botnet.
+
+1. Admin execute the command to start the botnet. In this case there are 10 bots configured as `botnet: True`.
+2. Admin accidentally remove manually a bot with `bot_id: my-bot-1` from admin runtime configuration without stopping it previously.
+3. Admin execute the command stop one of the bots with `bot_id: my-bot-2` already configured bot in runtime configuration.
+5. Admin add manually a completely new configuration bot with `bot_id: my-bot-3` to admin runtime configuration.
+6. Admin execute the command to stop the botnet which will do the following:
+ 1. do nothing to the bots which were already stopped, in this specific scenario, nothing will perform to the bot with `bot_id: my-bot-2`
+ 2. do nothing to the bots which never started, in this specific scenario, nothing will perform to the new bot with `bot_id: my-bot-3` which was only added to the admin runtime configuration steps before.
+ 2. execute stop command following normal procedure to all configured bots on admin runtime configuration which are still running, in this scenario, this action will not be applicable to the bots: `bot_id: my-bot-1`, `bot_id: my-bot-2` and `bot_id: my-bot-3`.
+ 3. execute stop command to the bot `bot_id: my-bot-1` and also add the configuration stored in internal runtime configuration to the admin runtime configuration in order to prevent possible loss of bot configuration by this user mistake (not following the correct procedure).
+ 4. log a warning message providing information to the admin explaining the situation: "intelmqctl detected that bot my-bot-1 is was running but has been removed from user runtime configuration. intelmqctl stopped it and added it to the admin runtime configuration. Please first stop the bot, and remove it afterwards.".
+
+The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
 
 
 **Note:** as mentioned on this section, in order to keep track of bots that are running and their configurations, `intelmqctl` will always keep a currently running state version of admin runtime configuration which is always generated after every `intelmqctl` action command such as `start`, `stop`, etc. However, from an user perspective, there is no need to be aware of this because is just an internal file used by intelmqctl to manage the system and every time it requires action will ask the user.
@@ -132,19 +152,25 @@ intelmqctl reload `<bot_id>`
 
 #### General procedure
 
+* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
+* `intelmqctl` will perform actions to a bot and/or runtime configuration depending on the checks results (described in `specific procedure`).
+* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
+
 #### Specific procedure
 
-    read the past runtime.conf (`.etc/.runtime.conf`) and compare with the new one (`.etc/runtime.conf`). Before execute reload, intelmqctl MUST proceed with the following checks:
+* `intelmqctl` will start doing multiple checks in order to prevent tracking issues and other possible issues related to correct procedures which are not being followed by admin. The checks will be described in this section. 
 
-    if `<bot_id>` is removed from configuration AND `<bot_id>` is running:
-        raise message "`<bot_id>` is no longer on configuration therefore cannot be reload. Do you want to stop it? [N/y]" \
-        "[Y] intelmqctl will remove the bot from all entries on the IntelMQ (e.g. management systems and crontab)" \
-        "[N] intelmqctl will add the bot configuration to the new one that you configured."
-    
-    if `<bot_id>` has a new `run_mode` value AND `<bot_id>` is running:
-        raise message "`<bot_id>` is configured with a `run_mode` therefore cannot be reload and it needs to be restarted." \
+* **Please note** that the explanation is exemplifying an interactive mode of intelmqctl, however, there will be available additional parameters to automatically answer the questions which will allow to execute this command by scripts or other tools.
+
+    * if `<bot_id>` is removed from admin runtime configuration AND `<bot_id>` is running (**Note: this check will mostly useful for the botnet command `intelmqctl reload`, please see botnet reload command for more details.**):
+      - raise message "`<bot_id>` is no longer on runtime configuration therefore cannot be reload. Do you want to stop it? [N/y]" \
+      - "[Y] intelmqctl will remove the bot from runtime configuration (internal and admin configurations), from crontab (if applicable) and stop the bot accordingly." \
+      - "[N] intelmqctl will add the configuration stored in internal runtime configuration to the admin runtime configuration in order to keep the admin runtime configuration up to date accordingly.
+
+    * if `<bot_id>` has a new `run_mode` value AND `<bot_id>` is running:
+        raise message "`<bot_id>` is configured with a new `run_mode` therefore cannot be reload and it needs to be restarted in order to reload the new configuration." \
         "Do you want to restart the bot to apply the new `run_mode`? [Y/n]" \
-        "[Y] `intelmqctl` will restart the bot automatically and the bot will be configured with new configuration" \
+        "[Y] `intelmqctl` will automatically execute restart action on the bot and the bot will start with the new configuration" \
         "[N] `intelmqctl` will remove and ignore the new `run_mode` value and will add to the configuration the current bot `run_mode`"
 
     stream
