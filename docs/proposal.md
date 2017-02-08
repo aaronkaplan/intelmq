@@ -23,14 +23,14 @@ Bot commands are commands which can only apply to one bot therefore requires a `
 intelmqctl start `<bot_id>`
     stream
         PID - execute bot and write PID file
-        SYSTEMMD - execute `systemctl start `<module@bot_id>``
+        SYSTEMMD - execute `systemctl start <module@bot_id>`
     scheduled
         add config line on crontab with intelmqscheduler (message: bot is schedule and will run at `<* * * * * >`)
 
 intelmqctl stop `<bot_id>`
     stream
         PID - send SIGKILL to bot and remove PID file
-        SYSTEMMD - execute `systemctl stop `<module@bot_id>``
+        SYSTEMMD - execute `systemctl stop `<module@bot_id>`
     scheduled
         send SIGKILL to intelmqscheduler and delete config line on crontab (message: bot is unschedule and will run at `<* * * * * >`)
 
@@ -54,7 +54,7 @@ intelmqctl reload `<bot_id>`
 
     stream
         PID - bot reload config
-        SYSTEMD - execute `systemctl reload `<module@bot_id>``
+        SYSTEMD - execute `systemctl reload `<module@bot_id>`
     scheduled
         send SIGHUP to intelmqscheduler??!?!?! or send a message saying that will only apply to the next execution if there is current one executing.
         check specfic scheduled config and compare with current one, change it if needs (may be the best thing is just overwrite)
@@ -64,7 +64,7 @@ intelmqctl reload `<bot_id>`
 intelctl status `<bot_id>`
     stream
         PID - check if pid exists
-        SYSTEMD - execute `systemctl status `<module@bot_id>``
+        SYSTEMD - execute `systemctl status `<module@bot_id>`
     scheduled
         check if crontab bot config is on crontab
 
@@ -77,7 +77,7 @@ intelctl status `<bot_id>`
 intelmqctl add `<bot_id>`
     stream
         PID - change botnet parameter to True
-        SYSTEMD - change botnet parameter to True and execute `systemctl enable `<module@bot_id.service>`` (beloging to botnet also means enable on-boot except if `init_system: intelmq`)
+        SYSTEMD - change botnet parameter to True and execute `systemctl enable `<module@bot_id.service>` (beloging to botnet also means enable on-boot except if `init_system: intelmq`)
     scheduled
         change botnet parameter to True and ....  NEED TO REWRITE THIS  .... execute `systemctl enable intelmq.botnet.crontab.service` to enable on boot with systemd like the rest of the botnet
 
@@ -107,9 +107,9 @@ intelmqctl rem `<bot_id>`
 
 intelmqctl debug `<bot_id>`
     ignore run_mode and do:
-        check if `intelmqctl status `<bot_id>`` and:
+        check if `intelmqctl status `<bot_id>` and:
             if True:
-                raise message "cannot debug bot because bot_id is running or is scheduled", also say that bot needs to be removed from botnet with `intelmqctl del `<bot_id>`` (just to prevent issues that we don't expect)
+                raise message "cannot debug bot because bot_id is running or is scheduled", also say that bot needs to be removed from botnet with `intelmqctl del `<bot_id>` (just to prevent issues that we don't expect)
             else:
                 execute the bot using ONLY the PID approach, log the lines to stdout and wait for CTRL+C
 
@@ -122,7 +122,7 @@ intelmqctl scheduler-exec `<bot_id>`
         if the process who's execute (PPID) this command is crontab process (we need to guarantee that this command can only be executed successfully by crontab since its the scheduler-executor):
             continue
         else: 
-            raise a message "`intelmqctl scheduler-exec `<bot_id>`` can only be execute by scheduler system (crontab)".
+            raise a message "`intelmqctl scheduler-exec `<bot_id>` can only be execute by scheduler system (crontab)".
 
         if `<bot_id>` is still running from the last scheduler execution:
             log a message "`<bot-id>` could not execute at `* * * * *` due the last scheduled execution is still running."
@@ -137,16 +137,16 @@ Only bots which are part of the botnet can be start/stop/restart/reload/status w
 ## Commands
 
 intelmqctl start
-    iterate to all bots and for each one execute `systemctl start `<bot_id>``
+    iterate to all bots and for each one execute `systemctl start `<bot_id>`
 
 intelmqctl stop
-    iterate to all bots and for each one execute `systemctl stop `<bot_id>``
+    iterate to all bots and for each one execute `systemctl stop `<bot_id>`
 
 intelmqctl restart
-    iterate to all bots and for each one execute `systemctl restart `<bot_id>``
+    iterate to all bots and for each one execute `systemctl restart `<bot_id>`
 
 intelmqctl reload
-    iterate to all bots and for each one execute `systemctl reload `<bot_id>``
+    iterate to all bots and for each one execute `systemctl reload `<bot_id>`
 
 intelmqctl status
     bot_id | run_mode | scheduled_time (if applicable) | is on botnet | status | enabled_on_boot
