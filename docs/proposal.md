@@ -74,7 +74,7 @@ intelctl status `<bot_id>`
 
 ### Botnet related commands
 
-intelmqctl add `<bot_id>`
+intelmqctl add2botnet `<bot_id>`
     stream
         PID - change botnet parameter to True
         SYSTEMD - change botnet parameter to True and execute `systemctl enable <module@bot_id.service>` (beloging to botnet also means enable on-boot except if `init_system: intelmq`)
@@ -93,7 +93,7 @@ intelmqctl add `<bot_id>`
         Technical details:
              In order to do this we can create a specific service named `intelmq.crontab_check.service` which will be configured to only run on-boot BEFORE crontab service starts. This service will be responsible to when the operating-system starts, to check if the current runtime configuration regarding scheduled bots matches with the current configuration on crontab. With this, bots that were running as scheduled mode before operating system restarts will be automatically removed from crontab before crontab have a chance to run them.
 
-intelmqctl rem `<bot_id>`
+intelmqctl rem2botnet `<bot_id>`
     stream
         PID - change botnet parameter to False
         SYSTEMD - change botnet parameter to False
