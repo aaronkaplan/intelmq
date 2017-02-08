@@ -2,6 +2,11 @@
 
 # Proposal
 
+## Definitions
+
+**user runtime configuration:** `runtime.conf`, a configuration file used by user to configure bots and also used by intelmqctl to manage the bots.
+**internal runtime configuration:** `.runtime.conf`, a hidden configuration file only used by intelmqctl to track the last successfully configuration used to run bot(s). This file is located in same directory as user runtime configuration.
+
 ## Configurations Required
 ```
 {
@@ -9,20 +14,36 @@
     run_mode: `<stream / scheduled>`
     scheduled_time: "* * * * *"
     botnet: True/False
+    onboot: True/False
 }
 ```
 **Note:** `enable` parameter as implemented in the current version of IntelMQ was removed in this proposal and was replaced by `botnet` parameter. Please see 'Overview' in 'Botnet Commands' section.
 
 
+## IntelMQ Principles
+
+### Configuration
+
+In order to keep track of bots that are running and their configurations, `intelmqctl` will always keep a stable version of user runtime configuration which is always generated after every `intelmqctl` action command such as `start`, `stop`, etc. In an user perspective, there is no need to be aware of this because is just an internal file used by intelmqctl.
+
+
 ## Bot commands
 
-Bot commands are commands which can only apply to one bot therefore requires a `<bot_id>`. The commands start/stop/restart/reload/status are the usual commands, however there are more commands implemented such as `add`, `rem`, `debug` and `scheduler-exec` which have a specific context explained in the following description of each command.
+Bot commands are commands which can only apply to one bot therefore requires a `<bot_id>`. The commands start/stop/restart/reload/status are the usual commands, however there are more commands implemented such as `enable`, `disable`, `add-to-botnet`, `remove-from-botnet`, `debug` and `scheduler-exec` which have a specific context explained in the following description of each command.
+
 
 ### Usual commands
 
+#### intelmqctl start `<bot_id>`
+
+**Command:**
+```
 intelmqctl start `<bot_id>`
-    The command looks at both .runtime.conf and runtime.conf to start all (previously and currently) configured bots.
-    In case that a bot configuration was removed from the runtime.conf and is still running, the bot will be stopped using the old `.runtime.conf` and additionally the runtime configuration of the (previously removed) bot will be again written to the current `runtime.conf`. The principle here is the user first MUST to stop and then remove the configuration, not the opposite.
+```
+
+**General procedure:**
+
+The command looks at both internal runtime configuration and user runtime configuration to decide which bots MUST start. This check is important to scenarios such as a bot configuration was removed from user runtime configuration but the bot stills run, therefore is still configured in internal runtime configuration. For this specific scenario, in order to prevent possible lost of bot configuration by user mistake (e.g. deleting bot configuration accidently), the bot will keep running normally, using the internal runtime configuration, but in addition the user runtime configuration will be updated, adding the bot configuration that was removed but stored in internal runtime configuration.
     
     stream
         PID - execute bot and write PID file
@@ -87,7 +108,7 @@ intelmqctl disable <bot-id>
 
 ### Botnet related commands
 
-intelmqctl add2botnet `<bot_id>`
+intelmqctl add-to-botnet `<bot_id>`
     stream
         PID - change botnet parameter to True
         SYSTEMD - change botnet parameter to True and execute `systemctl enable <module@bot_id.service>` (belonging to botnet also means enable on-boot except if `init_system: intelmq`)
@@ -105,7 +126,7 @@ intelmqctl add2botnet `<bot_id>`
         Technical details:
              In order to do this we can create a specific service named `intelmq.crontab_check.service` which will be configured to only run on-boot BEFORE crontab service starts. This service will be responsible to when the operating-system starts, to check if the current runtime configuration regarding scheduled bots matches with the current configuration on crontab. With this, bots that were running as scheduled mode before operating system restarts will be automatically removed from crontab before crontab have a chance to run them.
 
-intelmqctl rem2botnet `<bot_id>`
+intelmqctl remove-from-botnet `<bot_id>`
     stream
         PID - change botnet parameter to False
         SYSTEMD - change botnet parameter to False
