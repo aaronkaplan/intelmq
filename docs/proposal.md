@@ -85,11 +85,13 @@ intelmqctl add `<bot_id>`
         1. you will be able to execute start/stop/restart/reload/status botnet commands which will apply to all bots that belong to the botnet including this one that you are adding to the botnet.
         2. if your IntelMQ is not configured with `init_system: intelmq`, instead is configured with `init_system: systemd`, all bots which belong to botnet will start automatically on operating system boot (on-boot) in case operating system restarts for some reason.
 
-    -- begin DO NOT READ THIS
-    Note: always have a service (`intelmq.crontab_check.service`) that only run on boot, before crontab service start, to check if there is any line on crontab with a bot that does no belong to botnet, which means, cannot start on boot, because only bots configured as botnet will automatically and always start on boot.
+    **IMPORTANT**: intelmqctl with `init_system: systemd` will always start all botnet on-boot, therefore, there is an issue related to bots configured as scheduled mode that needs to be solve. Read the folllowing scenario/explanation:
+        Let's assume that botnet is running but there is a bot which is not part of the botnet also running with run_mode configured as scheduled. In this case it means that there is a crontab entry for that bot. However, since crontab entries are permanent, even when system reboot, the all idea about only bots that belongs to botnet with `init_system: systemd` will start on-boot is broken with this scenario. So, to prevent this I propose:
 
-    intelmqscheduler --on-boot `<module@bot_id>`   # will read runtime.conf, get all scheduled bots and write crontab_scheduled.conf and execute `systemctl enable intelmq.botnet.crontab.service`, and this service will have scheduler run for each bot. Also, we MAY implement the services with %i as service parameter like we are doing with stream bots configured with systemd. ISSUE: there is a problem with this solution because it relies on systemd, which means that crontab on boot will always use the init_system configured on runtime.conf.
-    -- end DO NOT READ THIS
+        Assumptions:
+            on-boot only applies, as mentioned on this documentation, to bots that belong to botnet where the botnet is configured as `init_system: systemd`. Therefore, we can use systemd to manage this issue without any problem.
+        Technical details:
+             In order to do this we can create a specific service named `intelmq.crontab_check.service` which will be configured to only run on-boot BEFORE crontab service starts. This service will be responsible to when the operating-system starts, to check if the current runtime configuration regarding scheduled bots matches with the current configuration on crontab. With this, bots that were running as scheduled mode before operating system restarts will be automatically removed from crontab before crontab have a chance to run them.
 
 intelmqctl rem `<bot_id>`
     stream
