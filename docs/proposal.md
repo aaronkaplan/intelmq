@@ -21,18 +21,23 @@ Bot commands are commands which can only apply to one bot therefore requires a `
 ### Usual commands
 
 intelmqctl start `<bot_id>`
+    The command looks at both .runtime.conf and runtime.conf to start all (previously and currently) configured bots.
+    In case that a bot configuration was removed from the runtime.conf and is still running, the bot will be stopped using the old `.runtime.conf` and additionally the runtime configuration of the (previously removed) bot will be again written to the current `runtime.conf`. The principle here is the user first MUST to stop and then remove the configuration, not the opposite.
+    
     stream
         PID - execute bot and write PID file
         SYSTEMMD - execute `systemctl start <module@bot_id>`
     scheduled
-        add config line on crontab with `intelmqctl scheduler-exec <bot_id>` (message: bot is schedule and will run at `<* * * * * >`)
+        add config line on crontab with `intelmqctl scheduler-exec <bot_id>` (message: bot is schedule and will run at `* * * * * `)
 
 intelmqctl stop `<bot_id>`
+    In case that the bot configuration was removed from the runtime.conf and is still running, the bot will be stopped using the old `.runtime.conf` and additionally the runtime configuration of the (previously removed) bot will be again written to the current `runtime.conf`. The principle here is the user first MUST to stop and then remove the configuration, not the opposite.
+
     stream
         PID - send SIGKILL to bot and remove PID file
         SYSTEMMD - execute `systemctl stop <module@bot_id>`
     scheduled
-        send SIGKILL to `intelmqctl scheduler-exec <bot_id>` and delete config line on crontab (message: bot is unschedule and will run at `<* * * * * >`)
+        send SIGKILL to `intelmqctl scheduler-exec <bot_id>` and delete config line on crontab (message: bot is unscheduled)
 
 intelmqctl restart `<bot_id>`
     call intelmqctl stop `<bot_id>`
@@ -72,28 +77,35 @@ intelctl status `<bot_id>`
     PRINT last 10 log lines
 
 
+### On-boot related commands
+
+intelmqctl enable <bot-id>
+    put parameter `onboot: True`
+
+intelmqctl disable <bot-id>
+    put parameter `onboot: False`
+
 ### Botnet related commands
 
-intelmqctl add-from-botnet `<bot_id>`
+intelmqctl add2botnet `<bot_id>`
     stream
         PID - change botnet parameter to True
-        SYSTEMD - change botnet parameter to True and execute `systemctl enable <module@bot_id.service>` (beloging to botnet also means enable on-boot except if `init_system: intelmq`)
+        SYSTEMD - change botnet parameter to True and execute `systemctl enable <module@bot_id.service>` (belonging to botnet also means enable on-boot except if `init_system: intelmq`)
     scheduled
         change botnet parameter to True and ....  NEED TO REWRITE THIS  .... execute `systemctl enable intelmq.botnet.crontab.service` to enable on boot with systemd like the rest of the botnet
 
     NOTE: adding a bot to botnet means two important things:
         1. you will be able to execute start/stop/restart/reload/status botnet commands which will apply to all bots that belong to the botnet including this one that you are adding to the botnet.
-        2. if your IntelMQ is not configured with `init_system: intelmq`, instead is configured with `init_system: systemd`, all bots which belong to botnet will start automatically on operating system boot (on-boot) in case operating system restarts for some reason.
 
     **IMPORTANT**: intelmqctl with `init_system: systemd` will always start all botnet on-boot, therefore, there is an issue related to bots configured as scheduled mode that needs to be solve. Read the folllowing scenario/explanation:
-        Let's assume that botnet is running but there is a bot which is not part of the botnet also running with run_mode configured as scheduled. In this case it means that there is a crontab entry for that bot. However, since crontab entries are permanent, even when system reboot, the all idea about only bots that belongs to botnet with `init_system: systemd` will start on-boot is broken with this scenario. So, to prevent this I propose:
+        Let's assume that botnet is running but there is a bot which is not part of the botnet also running with run_mode configured as scheduled. In this case it means that there is a crontab entry for that bot. However, since crontab entries are permanent, even when system reboot, the all idea about only bots that belong to botnet with `init_system: systemd` will start on-boot is broken with this scenario. So, to prevent this I propose:
 
         Assumptions:
             on-boot only applies, as mentioned on this documentation, to bots that belong to botnet where the botnet is configured as `init_system: systemd`. Therefore, we can use systemd to manage this issue without any problem.
         Technical details:
              In order to do this we can create a specific service named `intelmq.crontab_check.service` which will be configured to only run on-boot BEFORE crontab service starts. This service will be responsible to when the operating-system starts, to check if the current runtime configuration regarding scheduled bots matches with the current configuration on crontab. With this, bots that were running as scheduled mode before operating system restarts will be automatically removed from crontab before crontab have a chance to run them.
 
-intelmqctl remove-from-botnet `<bot_id>`
+intelmqctl rem2botnet `<bot_id>`
     stream
         PID - change botnet parameter to False
         SYSTEMD - change botnet parameter to False
@@ -134,27 +146,60 @@ intelmqctl scheduler-exec `<bot_id>`
 
 ## Overview
 
+Principle: botnet concept means two things:
+1. botnet is a group of bots which are configured with a parameter `botnet: True`.
+2. IntelMQ system provides a mechanism to execute just in one command (e.g start/stop/restart/reload/status) all actions to all bots which belong to botnet (independently of the `run_mode` parameter). Please check additional information related to this process on each botnet action.
+2. all bots that belong to botnet will automatically be started on boot. This means that stream and scheduled bots will behave as normal: stream run indefinitely and scheduled bots will be properly defined on crontab in order to be ready to start on the scheduled time defined in runtime configuration.
+
 Only bots which are part of the botnet can be start/stop/restart/reload/status with botnet commands. Also, botnet concept also assumes that all bots which belong to botnet will start on-boot in case operating system start/restarts. Please note that if IntelMQ is configured with `init_system: intelmq`, botnet cannot start on-boot because it relies on PID files, not on init system management like systemd.
 
 ## Commands
 
+Principles:
+1. .runtime.conf always have the last successfully runtime configuration
+2. the user first MUST to stop and then remove the configuration, not the opposite
+
+
 intelmqctl start
-    iterate to all bots and for each one execute `systemctl start `<bot_id>`
+    iterate over all bots in .runtime.conf with `botnet: True`
+        if in runtime.conf
+            pass
+        if not in runtime.conf and running
+            the bot will be stopped using the old `.runtime.conf` and additionally the runtime configuration of the (previously removed) bot will be again written to the current `runtime.conf`. 
+    iterate over all bots in runtime.conf with `botnet: True`
+        if running:
+            pass
+        if not running:
+            start
+            update .runtime.conf
+        add bot to .runtime.conf
 
 intelmqctl stop
-    iterate to all bots and for each one execute `systemctl stop `<bot_id>`
+    iterate over all bots in .runtime.conf with `botnet: True`
+        stop bot
+        if not in runtime.conf
+            the runtime.conf configuration of the (previously removed) bot will be again written to the current `runtime.conf`. .
+    iterate over all bots in runtime.conf with `botnet: True`
+        if running:
+            stop
 
 intelmqctl restart
-    iterate to all bots and for each one execute `systemctl restart `<bot_id>`
+    iterate over all bots in .runtime.conf with `botnet: True` and for each one execute `intelmqctl restart `<bot_id>`
 
 intelmqctl reload
-    iterate to all bots and for each one execute `systemctl reload `<bot_id>`
+    iterate over all bots in .runtime.conf with `botnet: True` and for each one execute `intelmqctl reload `<bot_id>`
 
 intelmqctl status
     bot_id | run_mode | scheduled_time (if applicable) | is on botnet | status | enabled_on_boot
 
 
+# On-boot commands
 
+intelmqctl enable
+    iterate over all bots in .runtime.conf with `botnet: True` and for each one execute `intelmqctl enable `<bot_id>`
+
+intelmqctl disable
+    iterate over all bots in .runtime.conf with `botnet: True` and for each one execute `intelmqctl disable `<bot_id>`
 
 # Other commands
 
