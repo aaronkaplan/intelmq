@@ -30,7 +30,7 @@ intelmqctl start `<bot_id>`
 intelmqctl stop `<bot_id>`
     stream
         PID - send SIGKILL to bot and remove PID file
-        SYSTEMMD - execute `systemctl stop `<module@bot_id>`
+        SYSTEMMD - execute `systemctl stop <module@bot_id>`
     scheduled
         send SIGKILL to intelmqscheduler and delete config line on crontab (message: bot is unschedule and will run at `<* * * * * >`)
 
@@ -77,7 +77,7 @@ intelctl status `<bot_id>`
 intelmqctl add `<bot_id>`
     stream
         PID - change botnet parameter to True
-        SYSTEMD - change botnet parameter to True and execute `systemctl enable `<module@bot_id.service>` (beloging to botnet also means enable on-boot except if `init_system: intelmq`)
+        SYSTEMD - change botnet parameter to True and execute `systemctl enable <module@bot_id.service>` (beloging to botnet also means enable on-boot except if `init_system: intelmq`)
     scheduled
         change botnet parameter to True and ....  NEED TO REWRITE THIS  .... execute `systemctl enable intelmq.botnet.crontab.service` to enable on boot with systemd like the rest of the botnet
 
@@ -109,7 +109,7 @@ intelmqctl debug `<bot_id>`
     ignore run_mode and do:
         check if `intelmqctl status `<bot_id>` and:
             if True:
-                raise message "cannot debug bot because bot_id is running or is scheduled", also say that bot needs to be removed from botnet with `intelmqctl del `<bot_id>` (just to prevent issues that we don't expect)
+                raise message "cannot debug bot because bot_id is running or is scheduled", also say that bot needs to be removed from botnet with `intelmqctl del <bot_id>` (just to prevent issues that we don't expect)
             else:
                 execute the bot using ONLY the PID approach, log the lines to stdout and wait for CTRL+C
 
