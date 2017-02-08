@@ -25,14 +25,14 @@ intelmqctl start `<bot_id>`
         PID - execute bot and write PID file
         SYSTEMMD - execute `systemctl start <module@bot_id>`
     scheduled
-        add config line on crontab with intelmqscheduler (message: bot is schedule and will run at `<* * * * * >`)
+        add config line on crontab with `intelmqctl scheduler-exec <bot_id>` (message: bot is schedule and will run at `<* * * * * >`)
 
 intelmqctl stop `<bot_id>`
     stream
         PID - send SIGKILL to bot and remove PID file
         SYSTEMMD - execute `systemctl stop <module@bot_id>`
     scheduled
-        send SIGKILL to intelmqscheduler and delete config line on crontab (message: bot is unschedule and will run at `<* * * * * >`)
+        send SIGKILL to `intelmqctl scheduler-exec <bot_id>` and delete config line on crontab (message: bot is unschedule and will run at `<* * * * * >`)
 
 intelmqctl restart `<bot_id>`
     call intelmqctl stop `<bot_id>`
@@ -56,7 +56,7 @@ intelmqctl reload `<bot_id>`
         PID - bot reload config
         SYSTEMD - execute `systemctl reload `<module@bot_id>`
     scheduled
-        send SIGHUP to intelmqscheduler??!?!?! or send a message saying that will only apply to the next execution if there is current one executing.
+        send SIGHUP to `intelmqctl scheduler-exec <bot_id>`??!?!?! or send a message saying that will only apply to the next execution if there is current one executing.
         check specfic scheduled config and compare with current one, change it if needs (may be the best thing is just overwrite)
 
     Note: in case run_mode changes, it will require a restart, therefore, nothing should be done except raise a message "run_mode was changed, reload command cannot perform. Please restart the bot to change the run_mode and reload with other possible configurations"
