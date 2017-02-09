@@ -21,7 +21,7 @@ Having two runtime configurations as mentioned before is important to scenarios 
 
 Please note that this scenario is using botnet commands, therefore, it's crutial to have a good understand about botnet concept. Also, every single mentioned to "bots", except mentioned explicity, means bots which are part of the botnet.
 
-1. Admin execute the command to start the botnet. In this case there are 10 bots configured as `botnet: True`.
+1. In this case there are 10 bots configured as `botnet: True`. Admin execute the command to start the botnet.
 2. Admin accidentally remove manually a bot with `bot_id: my-bot-1` from admin runtime configuration without stopping it previously.
 3. Admin add manually a new bot with `bot_id: my-bot-2` to admin runtime configuration.
 4. Admin execute the command to start the botnet which will do the following:
@@ -36,10 +36,10 @@ The **correct procedure** is stop bot first and then remove bot configuration fr
 
 Please note that this scenario is using botnet commands, therefore, it's crutial to have a good understand about botnet concept. Also, every single mentioned to "bots", except mentioned explicity, means bots which are part of the botnet.
 
-1. Admin execute the command to start the botnet. In this case there are 10 bots configured as `botnet: True`.
+1. In this case there are 10 bots configured as `botnet: True`. Admin execute the command to start the botnet.
 2. Admin accidentally remove manually a bot with `bot_id: my-bot-1` from admin runtime configuration without stopping it previously.
 3. Admin execute the command stop one of the bots with `bot_id: my-bot-2` already configured bot in runtime configuration.
-5. Admin add manually a completely new configuration bot with `bot_id: my-bot-3` to admin runtime configuration.
+5. Admin change manually a completely new admin runtime configuration to the bot with `bot_id: my-bot-3` which was already configured with other configuration parameters.
 6. Admin execute the command to stop the botnet which will do the following:
  1. do nothing to the bots which were already stopped, in this specific scenario, nothing will perform to the bot with `bot_id: my-bot-2`
  2. do nothing to the bots which never started, in this specific scenario, nothing will perform to the new bot with `bot_id: my-bot-3` which was only added to the admin runtime configuration steps before.
@@ -54,7 +54,7 @@ The **correct procedure** is stop bot first and then remove bot configuration fr
 
 Please note that this scenario is using botnet commands, therefore, it's crutial to have a good understand about botnet concept. Also, every single mentioned to "bots", except mentioned explicity, means bots which are part of the botnet.
 
-1. Admin execute the command to start the botnet. In this case there are 10 bots configured as `botnet: True`.
+1. In this case there are 10 bots configured as `botnet: True`. Admin execute the command to start the botnet.
 2. Admin execute the command to stop a bot with `bot_id: my-bot-1`.
 3. Admin accidentally remove manually a bot with `bot_id: my-bot-2` from admin runtime configuration without stopping it previously.
 4. Admin execute the command to reload the botnet which will do the following:
@@ -73,7 +73,7 @@ The **correct procedure** is stop bot first and then remove bot configuration fr
 
 Please note that this scenario is using botnet commands, therefore, it's crutial to have a good understand about botnet concept. Also, every single mentioned to "bots", except mentioned explicity, means bots which are part of the botnet.
 
-1. Admin execute the command to start the botnet. In this case there are 10 bots configured as `botnet: True`.
+1. In this case there are 10 bots configured as `botnet: True`. Admin execute the command to start the botnet.
 2. Admin accidentally remove manually a bot with `bot_id: my-bot-1` from admin runtime configuration without stopping it previously.
 3. Admin add manually a bot with `bot_id: my-bot-666` to admin runtime configuration with the configuration parameter `botnet: True`.
 3. Admin execute the command to status the botnet which will do the following:
@@ -141,7 +141,7 @@ intelmqctl start `<bot_id>`
   - **Process manager: PID and systemd**
     - intelmqctl will check if crontab configuration line for the bot is already on crontab:
      - if crontab configuration line exists, do nothing. In the end, write a log message "bot is already running"
-     - if crontab configuration line does not exists, add configuration line on crontab such as `<schedule_time> intelmq <python binary location> <intelmqctl location>/intelmqctl start <bot_id> --now comment="<bot_id>"`. In the end, write a log message "bot is schedule and will run at this time: `* * * * * `"
+     - if crontab configuration line does not exists, add configuration line on crontab such as `<schedule_time> intelmq <python binary location> <intelmqctl location>/intelmqctl start <bot_id> --now # <bot_id>`. In the end, write a log message "bot is schedule and will run at this time: `* * * * * `"
 
 
 ### intelmqctl stop `<bot_id>`
@@ -170,7 +170,7 @@ intelmqct stop `<bot_id>`
 * **Run mode: scheduled**
   - **Process manager: PID and systemd**
     - intelmqctl will check if crontab configuration line for the bot is still on crontab
-    - if crontab configuration line exists, remove configuration line on crontab such as `<schedule_time> intelmq <python binary location> <intelmqctl location>/intelmqctl scheduler-exec <bot_id> comment="<bot_id>"`. In the end, write a log message "bot is schedule and will run at this time: `* * * * * `"
+    - if crontab configuration line exists, remove configuration line on crontab. In the end, write a log message "bot is unschedule."
     - if crontab configuration line does not exists, do nothing. In the end, write a log message "bot is already stopped"
 
 ### intelmqctl restart `<bot_id>`
