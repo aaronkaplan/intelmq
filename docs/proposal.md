@@ -1,11 +1,32 @@
 # Definitions
 
+## Generic definitions
+
+`system`: system on this proposal means IntelMQ system.
+`operating system`: operating system on this proposal means the operating systems currently supported by IntelMQ.
+
 ## Botnet concepts
 
 **botnet:** is a concept which have the following principles:
 
 * botnet is a group of bots which are configured with a parameter `botnet: True`.
 * IntelMQ system provides a mechanism to execute just in one command (e.g start/stop/restart/reload/status) actions to all bots which belong to botnet (independently of the `run_mode` parameter). Please check additional information related to this process on each botnet action.
+
+## Process management concept
+
+* Process management on IntelMQ has two modes on this proposal: systemd and PID. Changing on IntelMQ configuration the process management to PID will work as always worked before. Using systemd to do process management will rely on systemd to manage the IntelMQ system.
+
+* **Please note** that only using systemd as process management will allow bots to run onboot, therefore, if IntelMQ system is configured with PID as process management, the `onboot` runtime configuration parameter will be completely ignored by the system. The reason why PID process management on boot is not including on this proposal is due the reliability of PID files being used in a production system.
+
+## Run mode concept
+
+* The run modes of IntelMQ are: stream and scheduled.
+ * **Stream:** TBD
+ * **Scheduled:** TBD
+
+## Run Modes with Process Management concept
+
+* `FIXME`: will be fun to explain this uuhuhuh
 
 
 ## Configuration concepts
@@ -306,23 +327,59 @@ intelctl enable `<bot_id>`
 
 #### Specific Procedure
 
-* `intelmqctl` perform the usual checks and if no errors found, `intelmqctl` will configure the runtime configuration for the <bot_id> with `onboot: true`, independently of the `run_mode` and `process_manager` configuration parameter.
+* `intelmqctl` perform the usual checks and if no errors found, `intelmqctl` will configure the runtime configuration for the <bot_id> accordingly to the following procedure:
 
 * **Run mode: stream**
   - **Process manager: PID**
-    - intelmqctl will configure crontab to start on boot this <bot_id> through crontab system.
-    - `FIXME`: is this really needed? Do we think that anyone will run the system in production without using a proper process manager? Read `IM-CRAZY-AND-I-KNOW-IT` subsection below.
+    - intelmqctl will not perform any action and will change `onboot` configuration parameter to `false` value.
+    - In the end, write a log message "IntelMQ is configured with process managent as PID, therefore enable a bot onboot is not supported. Please use systemd process management instead."
   - **Process manager: systemd**
     - execute `systemctl enable <module@bot_id>`
+    - intelmqctl will change `onboot` configuration parameter to `true` value.
 * **Run mode: scheduled**
   - **Process manager: PID**
-    - intelmqctl will configure crontab to start on boot this <bot_id> through crontab system.
-    `FIXME`: as I mentioned in the FIXME tag before, this will mix a lot in crontab. Explain verbally to Sebastian! Read `IM-CRAZY-AND-I-KNOW-IT` subsection below.
+    - intelmqctl will not perform any action and will change `onboot` configuration parameter to `false` value.
+    - In the end, write a log message "IntelMQ is configured with process managent as PID, therefore enable a bot onboot is not supported. Please use systemd process management instead."
   - **Process manager: systemd**
-    - intelmqctl will not perform any action because there is a `intelmq.scheduled_mode.on_boot.service` which is always enable and will automatically perform only onboot and oneshoot, the overwrite of crontab accordingly to the all bots configured as `run_mode: scheduled` and `onboot: true`.
+    - intelmqctl will change `onboot` configuration parameter to `true` value.
+    - intelmqctl will not perform any other action because there is a `intelmq.scheduled_bots_on_boot.service` which is always enable and will automatically write on crontab accordingly to the all bots configured as `run_mode: scheduled` and `onboot: true`. The command that MUST be called in order to write the crontab lines MUST be `intelmqctl start <bot-id>` where <bot-id> is the bot(s) which are configured with `onboot: true` and `run_mode: scheduled` runtime configuration parameters.
 
-* `IM-CRAZY-AND-I-KNOW-IT`: if intelmq, put @reboot on crontab - WHICH IS CRAZY CONFIGURATION, SO, WE NEED TO THINK HOW TO CONFIGURE IT IN NICE WAY IN CRONTAB, btw, cannot be `intelmqctl start` because this will start all botnet,even if there is bots with `onboot: false`. However, we can add a flag like `intelmqctl start --onboot` BUT, this parameter will only be applicable to intelmq process manager, which creates another variable that admins need to know, WHICH IS BAD! SO, cant see now good solution.
-    if 
+perform only onboot and oneshoot, 
+
+### intelmqctl disable `<bot_id>`
+
+#### Command
+```
+intelctl disable `<bot_id>`
+```
+
+#### General procedure
+
+* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
+* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
+
+
+#### Specific Procedure
+
+* `intelmqctl` perform the usual checks and if no errors found, `intelmqctl` will configure the runtime configuration for the <bot_id> with `onboot: false`, independently of the `run_mode` and `process_manager` configuration parameter.
+
+* **Run mode: stream**
+  - **Process manager: PID**
+    - intelmqctl will not perform any action and will change `onboot` configuration parameter to `false` value.
+    - In the end, write a log message "IntelMQ is configured with process managent as PID, therefore enable a bot onboot is not supported. Please use systemd process management instead."
+  - **Process manager: systemd**
+    - execute `systemctl enable <module@bot_id>`
+    - intelmqctl will change `onboot` configuration parameter to `false` value.
+* **Run mode: scheduled**
+  - **Process manager: PID**
+    - intelmqctl will not perform any action and will change `onboot` configuration parameter to `false` value.
+    - In the end, write a log message "IntelMQ is configured with process managent as PID, therefore enable a bot onboot is not supported. Please use systemd process management instead."
+  - **Process manager: systemd**
+    - intelmqctl will change `onboot` configuration parameter to `true` value.
+    - intelmqctl will not perform any other action because there is a `intelmq.scheduled_mode.on_boot.service` which is always enable and will automatically perform only onboot and oneshoot, the overwrite of crontab accordingly to the all bots configured as `run_mode: scheduled` and `onboot: true`. The command that MUST be called in order to write the crontab lines MUST be `intelmqctl start <bot-id>` where <bot-id> is the bot(s) which are configured with `onboot: true` and `run_mode: scheduled` runtime configuration parameters.
+
+
+
 
 
 ### intelmqctl disable `<bot_id>`
@@ -437,7 +494,7 @@ intelmqctl debug `<bot_id>`
 
 ## Overview
 
-Only bots which are part of the botnet can be start/stop/restart/reload/status with botnet commands. Please note that if IntelMQ is configured with `init_system: intelmq`, botnet cannot start on-boot because it relies on PID files, not on init system management like systemd.
+Only bots which are part of the botnet can be start/stop/restart/reload/status with botnet commands. Please note that if IntelMQ is configured with `init_system: PID`, botnet cannot start on-boot because it relies on PID files, not on init system management like systemd.
 
 **Please, ensure that you have good understand about botnet concept (see Definitions section for more information), otherwise can be misleading.
 
@@ -485,9 +542,14 @@ intelmqctl reload
     iterate over all bots in .runtime.conf with `botnet: True` and for each one execute `intelmqctl reload `<bot_id>`
 
 intelmqctl status
-    bot_id | run_mode | scheduled_time (if applicable) | is on botnet | status | enabled_on_boot | configtest
+    bot_id | run_mode | scheduled_time (if applicable) | status | enabled_on_boot | configtest
 
     DO NOT log the last 10 lines per each bot, too much!!!
+
+
+
+`FIXME`: we also need a command to show the status or even other actions to all bots, including the ones that does not belong to botnet.
+
 
 # On-boot commands
 
@@ -526,6 +588,7 @@ intelmqctl list
 1. internal runtime configuration MUST be stored in /var/run/ location
 2. internal runtime configuration cannot be called as configuration, should be called like 'current effective state of configuration' or other best name in order to not create confusion and be clear to the person who will read this documentation.
 3. pipeline.conf MUST also follow the same procedure of backingup because its another point of failure due admin mistakes.
+4. Create a diagram of the architecture of all process management systemd e
 
 ## Issues related to TODO that need to be discussed
 
