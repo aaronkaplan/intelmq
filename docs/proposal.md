@@ -113,6 +113,15 @@ Bot commands are commands which can only apply to one bot therefore requires a `
 intelmqctl start `<bot_id>`
 ```
 
+**Note:** by default, all commands will perform the action in background, not in foreground.
+
+##### Flags
+
+* `--now`: this parameter will execute the bot automatically when the start action is perform, respecting the `run_mode`. This means:
+ * if bot is configured with runtime parameter `run_mode: stream`, the bot will start and execute indefinetly, if 
+ * if bot is configured with runtime parameter `run_mode: scheduled`, the bot will start and execute one time successfully (oneshot) and exit. 
+* `--debug`: debug is a mode to run the bot in foreground. `FIXME`: need to think about the schedule mode scenario.
+
 #### General procedure
 
 * `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
@@ -130,9 +139,9 @@ intelmqctl start `<bot_id>`
     - execute `systemctl start <module@bot_id>`
 * **Run mode: scheduled**
   - **Process manager: PID and systemd**
-    - intelmqctl will check if crontab configuration line for the bot is already on crontab
-    - if crontab configuration line exists, do nothing. In the end, write a log message "bot is already running"
-    - if crontab configuration line does not exists, add configuration line on crontab such as `<schedule_time> intelmq <python binary location> <intelmqctl location>/intelmqctl scheduler-exec <bot_id> comment="<bot_id>"`. In the end, write a log message "bot is schedule and will run at this time: `* * * * * `"
+    - intelmqctl will check if crontab configuration line for the bot is already on crontab:
+     - if crontab configuration line exists, do nothing. In the end, write a log message "bot is already running"
+     - if crontab configuration line does not exists, add configuration line on crontab such as `<schedule_time> intelmq <python binary location> <intelmqctl location>/intelmqctl start <bot_id> --now comment="<bot_id>"`. In the end, write a log message "bot is schedule and will run at this time: `* * * * * `"
 
 
 ### intelmqctl stop `<bot_id>`
@@ -389,6 +398,8 @@ intelctl remove-from-botnet `<bot_id>`
 
 ### Debug related command
 
+**FIXME**: Do we still need this mode or we just need to add a flag to start action command?
+```
 intelmqctl debug `<bot_id>`
     ignore run_mode and do:
         check if `intelmqctl status `<bot_id>` and:
@@ -396,25 +407,8 @@ intelmqctl debug `<bot_id>`
                 raise message "cannot debug bot because bot_id is running or is scheduled", also say that bot needs to be removed from botnet with `intelmqctl del <bot_id>` (just to prevent issues that we don't expect)
             else:
                 execute the bot using ONLY the PID approach, log the lines to stdout and wait for CTRL+C
+```
 
-
-### Scheduling Execution related command
-
-intelmqctl scheduler-exec `<bot_id>`
-    scheduled - will execute the usual self.__bot_start() as a bot configured with `run_mode: stream`. Although, before execute, it will perform the following checks:
-
-
-    !!!!  I still dont know if we should really not implement this because I think this tool should never be run by a user.
-
-        if the process who's execute (PPID) this command is crontab process (we need to guarantee that this command can only be executed successfully by crontab since its the scheduler-executor):
-            continue
-        else: 
-            raise a message "`intelmqctl scheduler-exec `<bot_id>` can only be execute by scheduler system (crontab)".
-
-        if `<bot_id>` is still running from the last scheduler execution:
-            log a message "`<bot-id>` could not execute at `* * * * *` due the last scheduled execution is still running."
-        else
-            start the bot, similar to `intelmqctl start <bot-id>`
 
 
 # Botnet commands
@@ -491,3 +485,18 @@ intelmqctl list
 **Issue:** where and how we will store the configuration parameter `init_system`? on runtime.conf? per each bot? 
 
 **Proposal:** TBD
+
+
+
+
+# TODO
+
+1. internal runtime configuration MUST be stored in /var/run/ location
+2. internal runtime configuration cannot be called as configuration, should be called like 'current effective state of configuration' or other best name in order to not create confusion and be clear to the person who will read this documentation.
+3. pipeline.conf MUST also follow the same procedure of backingup because its another point of failure due admin mistakes.
+
+## Issues related to TODO that need to be discussed
+
+* re 2. calling the current state is a problem because when admin perform add-to-botnet the botnet parameter will change in admin runtime configuration but the internal runtime configuration still have the old value. So, I think WE MUST add to that commands `add-to-botnet` and `remove-from-botnet` the internal action of update the internal runtime configuration.
+
+
