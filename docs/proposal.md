@@ -12,7 +12,7 @@
 
 * **runtime configuration:** term to mention the configuration file of the bots without specifying if internal or admin runtime configuration because is not required for the explanation since it's transversal.
 * **user runtime configuration:** `runtime.conf`, a configuration file used by user to configure bots and also used by intelmqctl to manage the bots.
-* **internal runtime configuration:** `.runtime.conf`, a hidden configuration file only used by intelmqctl to track the last successfully configuration used to run bot(s). This file is located in same directory as admin runtime configuration.
+* **internal runtime configuration:** `.runtime.conf`, a hidden configuration file only used by intelmqctl to track the last successfully configuration used to run bot(s). This file is located in same directory as admin runtime configuration. Please note that bots configured in this configuration does NOT mean that they are running, it only means that this configuration was successfully used to the last intelmqctl action.
 * **defaults configuration:** TBD
 
 Having two runtime configurations as mentioned before is important to scenarios that are present in the following sub-sections. **Please note** that these sub-sections intend to give to the admin a better understanding of how and why intelmqctl keep track of bots that are running and their configurations. The quick explanation is `intelmqctl` will always keep a currently running state version of admin runtime configuration on a specific file named accordingly to definitions section, internal runtime configuration,  which is always generated after every `intelmqctl` action command such as `start`, `stop`, etc. **However**, from a usual admin perspective, there is no need to be aware of this because is just an internal file and an internal procedure used by intelmqctl to manage the system. In situations where intelmqctl detects some insconsitence in the current running state and the admin runtime configuration, intelmqctl will require action from admin if intelmqctl is being run in interactive mode or if not, will be available the possibility to specify flags to automatically perform the actions without need interaction.
@@ -45,7 +45,43 @@ Please note that this scenario is using botnet commands, therefore, it's crutial
  2. do nothing to the bots which never started, in this specific scenario, nothing will perform to the new bot with `bot_id: my-bot-3` which was only added to the admin runtime configuration steps before.
  2. execute stop command following normal procedure to all configured bots on admin runtime configuration which are still running, in this scenario, this action will not be applicable to the bots: `bot_id: my-bot-1`, `bot_id: my-bot-2` and `bot_id: my-bot-3`.
  3. execute stop command to the bot `bot_id: my-bot-1` and also add the configuration stored in internal runtime configuration to the admin runtime configuration in order to prevent possible loss of bot configuration by this user mistake (not following the correct procedure).
- 4. log a warning message providing information to the admin explaining the situation: "intelmqctl detected that bot my-bot-1 is was running but has been removed from user runtime configuration. intelmqctl stopped it and added it to the admin runtime configuration. Please first stop the bot, and remove it afterwards.".
+ 4. log a warning message providing information to the admin explaining the situation: "intelmqctl detected that bot with `bot_id: my-bot-1` is was running but has been removed from admin runtime configuration. intelmqctl stopped it and added it to the admin runtime configuration. Please first stop the bot, and remove it afterwards.".
+
+The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
+
+
+### Scenario 3 - botnet reload command after bot configuration was manually removed
+
+Please note that this scenario is using botnet commands, therefore, it's crutial to have a good understand about botnet concept. Also, every single mentioned to "bots", except mentioned explicity, means bots which are part of the botnet.
+
+1. Admin execute the command to start the botnet. In this case there are 10 bots configured as `botnet: True`.
+2. Admin execute the command to stop a bot with `bot_id: my-bot-1`.
+3. Admin accidentally remove manually a bot with `bot_id: my-bot-2` from admin runtime configuration without stopping it previously.
+4. Admin execute the command to reload the botnet which will do the following:
+ 1. do nothing to the bots which are stopped, in this specific scenario, nothing will perform to the bot with `bot_id: my-bot-1`
+ 2. execute reload command following normal procedure to all configured bots on admin runtime configuration which are still running, in this specific scenario, will perform to all bots except the bots with `bot_id: my-bot-1` and `bot_id: my-bot-2`.
+ 3. log a warning message providing information to the admin explaining the situation: "intelmqct detected that bot with `bot_id: my-bot-2` is still running but has been removed from admin runtime configuration."
+ 4. in interactive mode, intelmqctl will ask the following question: "Do you want to stop the bot with `bot_id: my-bot-2`? [N/y]"
+  * if "Y", intelmqctl remove the bot configuration from runtime configuration (internal and admin configurations) and also check in all IntelMQ system if there is some additional internal configurations that are still having configured that bot.
+  * if "N", intelmqctl add the bot configuration stored in internal runtime configuration to the admin runtime configuration in order to keep the admin runtime configuration up to date accordingly.
+
+The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
+
+
+### Scenario 4 - botnet status command after bot configuration was manually removed
+
+Please note that this scenario is using botnet commands, therefore, it's crutial to have a good understand about botnet concept. Also, every single mentioned to "bots", except mentioned explicity, means bots which are part of the botnet.
+
+1. Admin execute the command to start the botnet. In this case there are 10 bots configured as `botnet: True`.
+2. Admin accidentally remove manually a bot with `bot_id: my-bot-1` from admin runtime configuration without stopping it previously.
+3. Admin add manually a bot with `bot_id: my-bot-666` to admin runtime configuration with the configuration parameter `botnet: True`.
+3. Admin execute the command to status the botnet which will do the following:
+ * execute status command and for each specific situation do the following:
+  1. log a message providing information to the admin explaining that bot with `bot_id: my-bot-666` is with stopped status.
+  2. log a message providing information to the admin explaining that all the other bots, except the bot with `bot_id: my-bot-1`, are with running status.
+  3. log a message providing information to the admin explaining that bot with `bot_id: my-bot-1` is with unstable running status, due the missing bot configuration on admin runtime configuration.
+  `FIXME`: what do we should suggest to the user to fix the problem? Should we just print the bot configuration from internal runtime configuration and ask the user to copy and paste? OR say to run `intelmqctl stop my-bot-1 --force`
+  
 
 The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
 
@@ -54,7 +90,7 @@ The **correct procedure** is stop bot first and then remove bot configuration fr
 
 * **`botnet: true/false`** is a parameter on configuration per each bot to define if a bot is part of the botnet or not.
 * **`onboot: true/false`** is a parameter on configuration per each bot to define if a bot will be started on boot.
-* **`process_manager: "intelmq/systemd"`**: is a parameter on defaults configuration to be used internally by intelmqctl.
+* **`process_manager: "pid/systemd"`**: is a parameter on defaults configuration to be used internally by intelmqctl.
 * **`run_mode: <scheduled/stream>`** is a parameter on configuration per each bot to define how bot should run.
  - **`stream`:** run indefinitely
  - **`scheduled`:** is a parameter on configuration per each bot to define when the bot MUST start and run one time successfully and then exit. This mode will internally use crontab to start the bot.
@@ -162,15 +198,6 @@ intelmqctl reload `<bot_id>`
 
 * **Checks:**
 
-    ------ begin MOVE THIS TO CONFIGURATION CONCEPTS section and adapt to a scenario
-
-    * if `<bot_id>` is removed from admin runtime configuration AND `<bot_id>` is running (**Note: this check will mostly useful for the botnet command `intelmqctl reload`, please see botnet reload command for more details.**):
-      - raise message "`<bot_id>` is no longer on runtime configuration therefore cannot be reload. Do you want to stop it? [N/y]" \
-        - "[Y] intelmqctl will remove the bot from runtime configuration (internal and admin configurations), from crontab (if applicable) and stop the bot accordingly." \
-        - "[N] intelmqctl will add the configuration stored in internal runtime configuration to the admin runtime configuration in order to keep the admin runtime configuration up to date accordingly.
-
-    ------ end MOVE THIS TO CONFIGURATION CONCEPTS section
-
     * if `<bot_id>` has a new `run_mode` value AND `<bot_id>` is running:
       - raise message "`<bot_id>` is configured with a new `run_mode` therefore cannot be reload and it requires to be restarted in order to reload the new configuration. Do you want to restart the bot to apply the new `run_mode`? [Y/n]"
         - "[Y] `intelmqctl` will automatically execute restart action on the bot and the bot will start with the new configuration" \
@@ -187,7 +214,7 @@ intelmqctl reload `<bot_id>`
     - intelmqctl will check if crontab configuration line for the bot is still on crontab:
       - if crontab configuration line exists, replate it and log a message explaining the update action.
       - if crontab configuration line does not exists, add it and log a message explaining the update action.
-    TBD: dont know what should be our procedure if a scheduled bot is running when this reload action is performing. Should reload normally like stream bots? should we just ignore it? log a message about this "finding"?
+    `FIXME`: dont know what should be our procedure if a scheduled bot is running when this reload action is performing. Should reload normally like stream bots? should we just ignore it? log a message about this "finding"?
 
 ### intelctl status `<bot_id>`
 
@@ -200,8 +227,6 @@ intelctl status `<bot_id>`
 
 * `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
 * `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
-
-    ---- begin CREATE A NEW SCENARIO FOR BOTS REMOVED FROM ADMIN RUNTIME CONFIGURATION AND THEN BOTNET STATUS WAS PERFORMED. THATS WHY I ADDED A NEW COLLUMN TO STATUS OUTPUT
 
 
 #### Specific Procedure
@@ -226,6 +251,14 @@ intelctl status `<bot_id>`
     - intelmqctl will check if bot is configured on crontab
       - if configured on crontab, log message saying the current status is "Active"
       - if not configured on crontab, log message saying the current status is "Inactive"
+
+* **Ouput Proposal Example:**
+
+| bot_id    | run_mode    | scheduled_time (if applicable) | is on botnet | status             | enabled_on_boot | configtest   |
+|-----------|-------------|--------------------------------|--------------|--------------------|-----------------|--------------|
+| my-bot-1  | stream      | -                              | true         | running            | yes             | valid        |
+| my-bot-2  | scheduled   | 1 * * * *                      | false        | running (unstable) | no              | invalid      |
+
 
 
 ### On-boot related commands
