@@ -228,6 +228,21 @@ intelmqctl reload `<bot_id>`
       - if crontab configuration line exists, replate it and log a message explaining the update action.
       - if crontab configuration line does not exists, add it and log a message explaining the update action.
     `FIXME`: dont know what should be our procedure if a scheduled bot is running when this reload action is performing. Should reload normally like stream bots? should we just ignore it? log a message about this "finding"?
+    **Sebastian said**: ignore it because the current behavior is always ignore the SIGHUP and finish the process() method, then, when it goes to the next iteration, it gets the SIGHUP and reload. HOWEVER, since schedule bots are --oneshot internally, it will always ignore, therefore, WE NEED TO DOCUMENT THIS CORRECTLY.
+
+### intelmqctl configtest <bot_id>
+
+#### Command
+```
+intelmqctl configtest <bot_id>
+```
+
+#### General procedure
+
+* there are 2 types of checks. check if json is ok and check if parameters of bots are ok.
+ * for json check should give a generic message in case of something is failing saying "json is bad"
+ * for bot check should give a generic message in case of something is failing saying "bot config is bad because ..."
+
 
 ### intelctl status `<bot_id>`
 
@@ -247,21 +262,28 @@ intelctl status `<bot_id>`
 * **Run mode: stream**
   - **Process manager: PID**
     - intelmqctl will check if there is a PID file
-      - if PID file exists, log message saying the current status is "Active"
-      - if PID file does not exists, log message saying the current status is "Inactive"
+      - if PID file exists, log message saying the current status is "running"
+      - if PID file does not exists, log message saying the current status is "not running"
   - **Process manager: systemd**
     - execute `systemctl status <module@bot_id>`
 * **Run mode: scheduled**
   - **Process manager: PID and systemd**
     - intelmqctl will check if bot is configured on crontab
-      - if configured on crontab, log message saying the current status is "Active"
-      - if not configured on crontab, log message saying the current status is "Inactive"
+      - if configured on crontab, log message saying the current status is "running"
+      - if not configured on crontab, log message saying the current status is "not running"
 
-* **Ouput Proposal Example:**
+* **Ouput Proposal Example 1:**
 
 | bot_id    | run_mode    | scheduled_time (if applicable) | is on botnet | status             | enabled_on_boot | configtest   |
 |-----------|-------------|--------------------------------|--------------|--------------------|-----------------|--------------|
 | my-bot-1  | stream      | -                              | true         | running            | yes             | valid        |
+
+Also intelmqctl should print the last 10 log lines from the log of this bot.
+
+* **Ouput Proposal Example 2:**
+
+| bot_id    | run_mode    | scheduled_time (if applicable) | is on botnet | status             | enabled_on_boot | configtest   |
+|-----------|-------------|--------------------------------|--------------|--------------------|-----------------|--------------|
 | my-bot-2  | scheduled   | 1 * * * *                      | false        | running (unstable) | no              | invalid      |
 
 Also intelmqctl should print the last 10 log lines from the log of this bot.
@@ -415,7 +437,9 @@ intelmqctl debug `<bot_id>`
 
 ## Overview
 
-Only bots which are part of the botnet can be start/stop/restart/reload/status with botnet commands. Also, botnet concept also assumes that all bots which belong to botnet will start on-boot in case operating system start/restarts. Please note that if IntelMQ is configured with `init_system: intelmq`, botnet cannot start on-boot because it relies on PID files, not on init system management like systemd.
+Only bots which are part of the botnet can be start/stop/restart/reload/status with botnet commands. Please note that if IntelMQ is configured with `init_system: intelmq`, botnet cannot start on-boot because it relies on PID files, not on init system management like systemd.
+
+**Please, ensure that you have good understand about botnet concept (see Definitions section for more information), otherwise can be misleading.
 
 ## Commands
 
@@ -423,6 +447,13 @@ Principles:
 1. .runtime.conf always have the last successfully runtime configuration
 2. the user first MUST to stop and then remove the configuration, not the opposite
 
+
+### Flags
+
+* `intelmqctl start --stream-bots`
+* `intelmqctl start --scheduled-bots`
+
+### FIXME
 
 intelmqctl start
     iterate over all bots in .runtime.conf with `botnet: True`
@@ -456,6 +487,7 @@ intelmqctl reload
 intelmqctl status
     bot_id | run_mode | scheduled_time (if applicable) | is on botnet | status | enabled_on_boot | configtest
 
+    DO NOT log the last 10 lines per each bot, too much!!!
 
 # On-boot commands
 
