@@ -62,6 +62,7 @@ Please note that this scenario is using botnet commands, therefore, it's crutial
  2. execute reload command following normal procedure to all configured bots on admin runtime configuration which are still running, in this specific scenario, will perform to all bots except the bots with `bot_id: my-bot-1` and `bot_id: my-bot-2`.
  3. log a warning message providing information to the admin explaining the situation: "intelmqct detected that bot with `bot_id: my-bot-2` is still running but has been removed from admin runtime configuration."
  4. in interactive mode, intelmqctl will ask the following question: "Do you want to stop the bot with `bot_id: my-bot-2`? [N/y]"
+   
    * if "Y", intelmqctl remove the bot configuration from runtime configuration (internal and admin configurations) and also check in all IntelMQ system if there is some additional internal configurations that are still having configured that bot.
    * if "N", intelmqctl add the bot configuration stored in internal runtime configuration to the admin runtime configuration in order to keep the admin runtime configuration up to date accordingly.
 
@@ -128,6 +129,7 @@ intelmqctl start `<bot_id>`
   - **Process manager: systemd**
     - execute `systemctl start <module@bot_id>`
 * **Run mode: scheduled**
+  - **Process manager: PID and systemd**
     - intelmqctl will check if crontab configuration line for the bot is already on crontab
     - if crontab configuration line exists, do nothing. In the end, write a log message "bot is already running"
     - if crontab configuration line does not exists, add configuration line on crontab such as `<schedule_time> intelmq <python binary location> <intelmqctl location>/intelmqctl scheduler-exec <bot_id> comment="<bot_id>"`. In the end, write a log message "bot is schedule and will run at this time: `* * * * * `"
@@ -157,6 +159,7 @@ intelmqct stop `<bot_id>`
   - **Process manager: systemd**
     - execute `systemctl stop <module@bot_id>`
 * **Run mode: scheduled**
+  - **Process manager: PID and systemd**
     - intelmqctl will check if crontab configuration line for the bot is still on crontab
     - if crontab configuration line exists, remove configuration line on crontab such as `<schedule_time> intelmq <python binary location> <intelmqctl location>/intelmqctl scheduler-exec <bot_id> comment="<bot_id>"`. In the end, write a log message "bot is schedule and will run at this time: `* * * * * `"
     - if crontab configuration line does not exists, do nothing. In the end, write a log message "bot is already stopped"
@@ -211,6 +214,7 @@ intelmqctl reload `<bot_id>`
   - **Process manager: systemd**
     - execute `systemctl reload <module@bot_id>` (this action will be automatically specified in systemd template service file)
 * **Run mode: scheduled**
+  - **Process manager: PID and systemd**
     - intelmqctl will check if crontab configuration line for the bot is still on crontab:
       - if crontab configuration line exists, replate it and log a message explaining the update action.
       - if crontab configuration line does not exists, add it and log a message explaining the update action.
@@ -239,6 +243,7 @@ intelctl status `<bot_id>`
   - **Process manager: systemd**
     - execute `systemctl status <module@bot_id>`
 * **Run mode: scheduled**
+  - **Process manager: PID and systemd**
     - intelmqctl will check if bot is configured on crontab
       - if configured on crontab, log message saying the current status is "Active"
       - if not configured on crontab, log message saying the current status is "Inactive"
@@ -253,35 +258,119 @@ intelctl status `<bot_id>`
 Also intelmqctl should print the last 10 log lines from the log of this bot.
 
 
-### On-boot related commands
+## On-boot related commands
 
-intelmqctl enable `<bot-id>`
-    
-    put parameter `onboot: True`
-    
-    if systemd, execute systemctl enable
+### intelmqctl enable `<bot_id>`
 
-    if intelmq, put @reboot on crontab - WHICH IS CRAZY CONFIGURATION, SO, WE NEED TO THINK HOW TO CONFIGURE IT IN NICE WAY IN CRONTAB, btw, cannot be `intelmqctl start` because this will start all botnet,even if there is bots with `onboot: false`. However, we can add a flag like `intelmqctl start --onboot` BUT, this parameter will only be applicable to intelmq process manager, which creates another variable that admins need to know, WHICH IS BAD! SO, cant see now good solution.
+#### Command
+```
+intelctl enable `<bot_id>`
+```
+
+#### General procedure
+
+* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
+* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
+
+
+#### Specific Procedure
+
+* `intelmqctl` perform the usual checks and if no errors found, `intelmqctl` will configure the runtime configuration for the <bot_id> with `onboot: true`, independently of the `run_mode` and `process_manager` configuration parameter.
+
+* **Run mode: stream**
+  - **Process manager: PID**
+    - intelmqctl will configure crontab to start on boot this <bot_id> through crontab system.
+    - `FIXME`: is this really needed? Do we think that anyone will run the system in production without using a proper process manager? Read `IM-CRAZY-AND-I-KNOW-IT` subsection below.
+  - **Process manager: systemd**
+    - execute `systemctl enable <module@bot_id>`
+* **Run mode: scheduled**
+  - **Process manager: PID**
+    - intelmqctl will configure crontab to start on boot this <bot_id> through crontab system.
+    `FIXME`: as I mentioned in the FIXME tag before, this will mix a lot in crontab. Explain verbally to Sebastian! Read `IM-CRAZY-AND-I-KNOW-IT` subsection below.
+  - **Process manager: systemd**
+    - intelmqctl will not perform any action because there is a `intelmq.scheduled_mode.on_boot.service` which is always enable and will automatically perform only onboot and oneshoot, the overwrite of crontab accordingly to the all bots configured as `run_mode: scheduled` and `onboot: true`.
+
+* `IM-CRAZY-AND-I-KNOW-IT`: if intelmq, put @reboot on crontab - WHICH IS CRAZY CONFIGURATION, SO, WE NEED TO THINK HOW TO CONFIGURE IT IN NICE WAY IN CRONTAB, btw, cannot be `intelmqctl start` because this will start all botnet,even if there is bots with `onboot: false`. However, we can add a flag like `intelmqctl start --onboot` BUT, this parameter will only be applicable to intelmq process manager, which creates another variable that admins need to know, WHICH IS BAD! SO, cant see now good solution.
     if 
 
-intelmqctl disable `<bot-id>`
-    put parameter `onboot: False`
 
-### Botnet related commands
+### intelmqctl disable `<bot_id>`
 
-intelmqctl add-to-botnet `<bot_id>`
+#### Command
+```
+intelctl disable `<bot_id>`
+```
 
-**QUESTION:** admin runs `botnet start` which starts all bots configured as being part of the botnet. Then, admin add a bot to the botnet. What should be the behavior? Should the bot automatically start and `botnet: true` OR should just change the `botnet: true` without starting it???
+#### General procedure
 
-    stream
-        PID - change botnet parameter to True
-        SYSTEMD - change botnet parameter to True and execute `systemctl enable <module@bot_id.service>` (belonging to botnet also means enable on-boot except if `init_system: intelmq`)
-    scheduled
-        change botnet parameter to True and ....  NEED TO REWRITE THIS  .... execute `systemctl enable intelmq.botnet.crontab.service` to enable on boot with systemd like the rest of the botnet
+* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
+* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
 
-    NOTE: adding a bot to botnet means two important things:
-        1. you will be able to execute start/stop/restart/reload/status botnet commands which will apply to all bots that belong to the botnet including this one that you are adding to the botnet.
 
+#### Specific Procedure
+
+* `intelmqctl` perform the usual checks and if no errors found, `intelmqctl` will configure the runtime configuration for the <bot_id> with `onboot: false`, independently of the `run_mode` and `process_manager` configuration parameter.
+
+* **Run mode: stream**
+  - **Process manager: PID**
+    - intelmqctl will configure crontab to not start on boot this <bot_id> removing it from crontab system.
+    - `FIXME`: is this really needed? Do we think that anyone will run the system in production without using a proper process manager?
+  - **Process manager: systemd**
+    - execute `systemctl disable <module@bot_id>`
+* **Run mode: scheduled**
+  - **Process manager: PID**
+    - intelmqctl will configure crontab to not start on boot this <bot_id> removing it from crontab system.
+    `FIXME`: as I mentioned in the FIXME tag before, this will mix a lot in crontab. Explain verbally to Sebastian!
+  - **Process manager: systemd**
+    - intelmqctl will not perform any action because there is a `intelmq.scheduled_mode.on_boot.service` which is always enable and will automatically perform only onboot and oneshoot, the overwrite of crontab accordingly to the all bots configured as `run_mode: scheduled` and `onboot: true`, therefore, any bots configured as `run_mode: scheduled` and `onboot: false` will take into account by the service `intelmq.scheduled_mode.on_boot.service`.
+
+
+
+## Botnet related commands
+
+#### intelmqctl add-to-botnet `<bot_id>`
+
+#### Command
+```
+intelctl add-to-botnet `<bot_id>`
+```
+
+#### General procedure
+
+* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
+* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
+
+#### Specific Procedure
+
+* `intelmqctl` will perform the usual checks and if no errors found, `intelmqctl` will configure the botnet configuration for the <bot_id> with `botnet: true`, independently of the `run_mode` and `process_manager` configuration parameter.
+
+* `intelmqctl` will not perform any other actions because this `add-to-botnet` action only change the runtime configuration parameter, without perform start/stop/restart/reload actions.
+
+* `intelmqctl` will log a message "<bot_id> runtime configuration has been changed in order to add the bot to the botnet but the bot will keep is current status (running or stopped). Please check bot current status and then perform, if needs, the action to start/stop/restart"
+
+#### intelmqctl remove-from-botnet `<bot_id>`
+
+#### Command
+```
+intelctl remove-from-botnet `<bot_id>`
+```
+
+#### General procedure
+
+* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
+* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
+
+#### Specific Procedure
+
+* `intelmqctl` will perform the usual checks and if no errors found, `intelmqctl` will configure the botnet configuration for the <bot_id> with `botnet: false`, independently of the `run_mode` and `process_manager` configuration parameter.
+
+* `intelmqctl` will not perform any other actions because this `remove-from-botnet` action only change the runtime configuration parameter, without perform start/stop/restart/reload actions.
+
+* `intelmqctl` will log a message "<bot_id> runtime configuration has been changed in order to remove the bot from the botnet but the bot will keep is current status (running or stopped). Please check bot current status and then perform, if needs, the action to start/stop/restart"
+
+`FIXME`: there is a problem here when the user enable all botnet using the botnet command and then user adds a new bot which is stopped to the botnet. How we know that user execute enable botnet command?
+
+```
     **IMPORTANT**: intelmqctl with `init_system: systemd` will always start all botnet on-boot, therefore, there is an issue related to bots configured as scheduled mode that needs to be solve. Read the following scenario/explanation:
         Let's assume that botnet is running but there is a bot which is not part of the botnet also running with run_mode configured as scheduled. In this case it means that there is a crontab entry for that bot. However, since crontab entries are permanent, even when system reboot, the all idea about only bots that belong to botnet with `init_system: systemd` will start on-boot is broken with this scenario. So, to prevent this I propose:
 
@@ -290,16 +379,12 @@ intelmqctl add-to-botnet `<bot_id>`
         Technical details:
              In order to do this we can create a specific service named `intelmq.crontab_check.service` which will be configured to only run on-boot BEFORE crontab service starts. This service will be responsible to when the operating-system starts, to check if the current runtime configuration regarding scheduled bots matches with the current configuration on crontab. With this, bots that were running as scheduled mode before operating system restarts will be automatically removed from crontab before crontab have a chance to run them.
 
-intelmqctl remove-from-botnet `<bot_id>`
-    stream
-        PID - change botnet parameter to False
-        SYSTEMD - change botnet parameter to False
-    scheduled
-        change botnet parameter to False
 
     NOTE: removing a bot from botnet means two important things:
         1. you will continue to be able to execute start/stop/restart/reload/status botnet commands but these commands will NOT be applied to this bot that you removing from the botnet.
         2. if your IntelMQ is not configured with `init_system: intelmq`, instead is configured with `init_system: systemd`, this bot which you are removing from botnet will NOT start automatically on operating system boot (on-boot) in case operating system restarts for some reason.
+```
+
 
 
 ### Debug related command
