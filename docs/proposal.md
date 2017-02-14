@@ -123,10 +123,7 @@ Each bot can be configured with a specific run mode such as:
 
 ## Run Modes with Process Management
 
-![architecture](https://s7.postimg.org/60wtc5pbf/intelmqctl.jpg)
-
-`FIXME`: will be fun to explain this uuhuhuh - is required to explain how bots configured with scheduled mode and NOT onboot will be not be start onboot, even after a system crash when these bots were on crontab because someone started them without wanting them to start onboot. TL;DR onboot a special service on systemd will rewrite all crontab configuration before crontab service starts.
-
+![architecture](ttps://s27.postimg.org/6snypqi9v/intelmqctl_2.jpg)
 
 
 ## Configurations (admin vs internal)
