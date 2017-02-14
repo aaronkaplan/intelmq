@@ -73,20 +73,20 @@ Table of Contents
 
 # Definitions
 
-**system:** system on this proposal means IntelMQ system.
-**operating system:** operating system on this proposal means the operating systems currently supported by IntelMQ.
-**production environment:** system that belongs to production environment is considered a system that should never stop and should work properly all the time.
-**{runtime, defaults, pipeline} configuration:** term to mention the configuration without specifying if internal or admin configuration because is not required for the explanation since it's not revelevant.
-**admin {runtime, defaults, pipeline} configuration:** a configuration file used by IntelMQ sysadmin and also used by intelmqctl.
-**internal {runtime, defaults, pipeline} configuration:** a hidden configuration file only used by intelmqctl to track of the last successfully configuration used to perform some action through intelmqctl. This file is located in `/var/run/intelmq/` and should not be manually changed.
-**`process_manager: "pid/systemd"`**: is a parameter on defaults configuration which will define the process manager that IntelMQ will use to manage the bots.
-**`botnet: true/false`** is a parameter of runtime configuration per each bot to define if a bot is part of the botnet or not.
-**`onboot: true/false`** is a parameter of runtime configuration per each bot to define if a bot will start on boot.
-**`botnet_onboot: true/false`** is a parameter of defaults configuration which will define if the bots configured as part of the botnet will start onboot.
-**`run_mode: <scheduled/stream>`** is a parameter of runtime configuration per each bot to define how bot should run.
+* **system:** system on this proposal means IntelMQ system.
+* **operating system:** operating system on this proposal means the operating systems currently supported by IntelMQ.
+* **production environment:** system that belongs to production environment is considered a system that should never stop and should work properly all the time.
+* **{runtime, defaults, pipeline} configuration:** term to mention the configuration without specifying if internal or admin configuration because is not required for the explanation since it's not revelevant.
+* **admin {runtime, defaults, pipeline} configuration:** a configuration file used by IntelMQ sysadmin and also used by intelmqctl.
+* **internal {runtime, defaults, pipeline} configuration:** a hidden configuration file only used by intelmqctl to track of the last successfully configuration used to perform some action through intelmqctl. This file is located in `/var/run/intelmq/` and should not be manually changed.
+* **`process_manager: "pid/systemd"`**: is a parameter on defaults configuration which will define the process manager that IntelMQ will use to manage the bots.
+* **`botnet: true/false`** is a parameter of runtime configuration per each bot to define if a bot is part of the botnet or not.
+* **`onboot: true/false`** is a parameter of runtime configuration per each bot to define if a bot will start on boot.
+* **`botnet_onboot: true/false`** is a parameter of defaults configuration which will define if the bots configured as part of the botnet will start onboot.
+* **`run_mode: <scheduled/stream>`** is a parameter of runtime configuration per each bot to define how bot should run.
  - **`stream`:** this value will allow the bot to run and process messages indefinitely.
  - **`scheduled`:** this value will allow the bot to start at `schedule_time` (bot parameter), run one successfully time and then exit.
-**`schedule_time`:** is a parameter of runtime configuration per each bot to define in which specific scheduled time the bot should run  This parameter needs to be defined using crontab syntax. Please note that this parameter is only applicable to bots configured as `scheduled` run_mode.
+* **`schedule_time`:** is a parameter of runtime configuration per each bot to define in which specific scheduled time the bot should run  This parameter needs to be defined using crontab syntax. Please note that this parameter is only applicable to bots configured as `scheduled` run_mode.
 
 # Concepts
 
@@ -94,7 +94,7 @@ Table of Contents
 
 Process management on IntelMQ has two modes on this proposal: systemd and PID. Changing on IntelMQ configuration the process management to PID will work as always worked before. Using systemd to do process management will rely on systemd to manage the IntelMQ system.
 
-**Defaults configuration:**
+**on defaults configuration:**
 ```
 {
     ...
@@ -112,7 +112,7 @@ Process management on IntelMQ has two modes on this proposal: systemd and PID. C
 
 **Note:** IntelMQ system provides a mechanism to execute just in one command (e.g start/stop/restart/reload/status) actions to all bots which belong to botnet (independently of the `run_mode` parameter). Please check additional information related to this process on each botnet action.
 
-**Runtime configuration:**
+**on runtime configuration:**
 ```
     "abusech-domain-parser": {
         ...
@@ -128,7 +128,7 @@ An IntelMQ bot or botnet configured with onboot enabled will start automatically
 
 **Note:** only using systemd as process management will allow bots to run onboot, therefore, if IntelMQ system is configured with PID as process management, the `onboot` runtime configuration parameter will be completely ignored by the system. The reason why PID process management on boot is not including on this proposal is due the lack of reliability of PID files being used in a production system.
 
-**Bot onboot - Runtime configuration:**
+**Bot onboot on runtime configuration**
 ```
     "abusech-domain-parser": {
         ...
@@ -138,7 +138,7 @@ An IntelMQ bot or botnet configured with onboot enabled will start automatically
     }
 ```
 
-**Botnet onboot - Defaults configuration:**
+**Botnet onboot on defaults configuration:**
 ```
 {
     ...
@@ -153,7 +153,7 @@ Each bot can be configured with a specific run mode such as:
  * **Stream:** bot will run and process messages indefinitely.
  * **Scheduled:** bot will start at the defined `schedule_time`, run one successfully time and then exit.
 
-**Runtime configuration:**
+**on runtime configuration:**
 ```
     "abusech-domain-parser": {
         ...
