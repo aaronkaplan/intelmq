@@ -143,7 +143,7 @@ Each bot can be configured with a specific run mode such as:
     "abusech-domain-parser": {
         ...
         "parameters": {
-            "run_mode": "< stream / scheduled>"
+            "run_mode": "< stream / scheduled >"
         }
     }
 ```
@@ -192,18 +192,18 @@ intelmqctl start `<bot_id>`
 **Procedure:**
 
 * `intelmqctl` will not perform any action to a bot which is already running.
-* if **Run mode: stream**
-  - if **Process manager: PID**
+* if Run mode: stream
+  - if Process manager: PID
     - intelmqctl will check if there is a PID file
     - if PID file exists, do nothing
     - if PID file does not exist, execute start action on bot and write PID file
-  - if **Process manager: systemd**
+  - if Process manager: systemd
     - execute `systemctl start <module@bot_id>`
-* if **Run mode: scheduled**
-  - if **Process manager: PID and systemd**
+* if Run mode: scheduled
+  - if Process manager: PID or systemd
     - intelmqctl will check if crontab configuration line for the bot is already on crontab:
      - if crontab configuration line exists, do nothing. In the end, write a log message "bot is already running"
-     - if crontab configuration line does not exists, add configuration line on crontab such as `<schedule_time> intelmq <python binary location> <intelmqctl location>/intelmqctl start <bot_id> --now # <bot_id>`. In the end, write a log message "bot is schedule and will run at this time: `* * * * * `"
+     - if crontab configuration line does not exists, add configuration line on crontab such as `<schedule_time> <intelmq bot module> <bot_id> # <bot_id>`. In the end, write a log message "bot is schedule and will run at this time: `* * * * * `"
 
 
 ## intelmqctl stop `<bot_id>`
@@ -215,6 +215,7 @@ intelmqct stop `<bot_id>`
 ```
 
 **Procedure:**
+
 * `intelmqctl` will not perform any action to a bot which is already stopped.
 * if **Run mode: stream**
   - if **Process manager: PID**
@@ -224,7 +225,7 @@ intelmqct stop `<bot_id>`
   - if **Process manager: systemd**
     - execute `systemctl stop <module@bot_id>`
 * if **Run mode: scheduled**
-  - if **Process manager: PID and systemd**
+  - if **Process manager: PID or systemd**
     - intelmqctl will check if crontab configuration line for the bot is still on crontab
     - if crontab configuration line exists, remove configuration line on crontab. In the end, write a log message "bot is unschedule."
     - if crontab configuration line does not exists, do nothing. In the end, write a log message "bot is already stopped"
@@ -237,7 +238,7 @@ intelmqct stop `<bot_id>`
 intelmqctl restart `<bot_id>`
 ```
 
-### General procedure
+**Procedure:**
 
 * `intelmqctl` will use the stop action command and start action command to perform the restart, therefore, there is no additional information required here, is only to actions commands being executed already explained.
 
@@ -251,13 +252,7 @@ intelmqctl restart `<bot_id>`
 intelmqctl reload `<bot_id>`
 ```
 
-### General procedure
-
-* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
-* `intelmqctl` will perform actions to a bot and/or runtime configuration depending on the checks results (described in `specific procedure`).
-* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
-
-### Specific procedure
+**Procedure:**
 
 * `intelmqctl` will start perform multiple checks in order to prevent tracking issues and other possible issues related to correct procedures which are not being followed by admin. The checks will be described in this section. 
 
@@ -279,7 +274,7 @@ intelmqctl reload `<bot_id>`
   - **Process manager: systemd**
     - execute `systemctl reload <module@bot_id>` (this action will be automatically specified in systemd template service file)
 * **Run mode: scheduled**
-  - **Process manager: PID and systemd**
+  - **Process manager: PID or systemd**
     - intelmqctl will check if crontab configuration line for the bot is still on crontab:
       - if crontab configuration line exists, replate it and log a message explaining the update action.
       - if crontab configuration line does not exists, add it and log a message explaining the update action.
