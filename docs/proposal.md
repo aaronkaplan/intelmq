@@ -1,7 +1,6 @@
 Table of Contents
 =================
 
-   * [Table of Contents](#table-of-contents)
    * [Definitions](#definitions)
    * [Concepts](#concepts)
       * [Process management](#process-management)
@@ -12,48 +11,26 @@ Table of Contents
       * [Configurations (admin vs internal)](#configurations-admin-vs-internal)
          * [Configurations Check Procedure](#configurations-check-procedure)
    * [intelmqctl](#intelmqctl)
-      * [intelmqctl start &lt;bot_id&gt;](#intelmqctl-start-bot_id)
-      * [intelmqctl stop &lt;bot_id&gt;](#intelmqctl-stop-bot_id)
-      * [intelmqctl restart &lt;bot_id&gt;](#intelmqctl-restart-bot_id)
-         * [General procedure](#general-procedure)
-      * [intelmqctl reload &lt;bot_id&gt;](#intelmqctl-reload-bot_id)
-         * [General procedure](#general-procedure-1)
-         * [Specific procedure](#specific-procedure)
-      * [intelmqctl configtest ](#intelmqctl-configtest-)
-         * [General procedure](#general-procedure-2)
-      * [intelctl status &lt;bot_id&gt;](#intelctl-status-bot_id)
-         * [General procedure](#general-procedure-3)
-         * [Specific Procedure](#specific-procedure-1)
-      * [intelmqctl enable &lt;bot_id&gt;](#intelmqctl-enable-bot_id)
-         * [General procedure](#general-procedure-4)
-         * [Specific Procedure](#specific-procedure-2)
-      * [intelmqctl disable &lt;bot_id&gt;](#intelmqctl-disable-bot_id)
-         * [General procedure](#general-procedure-5)
-         * [Specific Procedure](#specific-procedure-3)
-      * [intelmqctl add-to-botnet &lt;bot_id&gt;](#intelmqctl-add-to-botnet-bot_id)
-         * [General procedure](#general-procedure-6)
-         * [Specific Procedure](#specific-procedure-4)
-      * [intelmqctl remove-from-botnet &lt;bot_id&gt;](#intelmqctl-remove-from-botnet-bot_id)
-         * [General procedure](#general-procedure-7)
-         * [Specific Procedure](#specific-procedure-5)
-   * [Botnet commands](#botnet-commands)
-      * [Overview](#overview)
-      * [Commands](#commands)
-         * [Flags](#flags)
-         * [FIXME](#fixme)
-   * [On-boot commands](#on-boot-commands)
-   * [Other commands](#other-commands)
+      * [intelmqctl start action](#intelmqctl-start-action)
+      * [intelmqctl stop action](#intelmqctl-stop-action)
+      * [intelmqctl restart action](#intelmqctl-restart-action)
+      * [intelmqctl reload action](#intelmqctl-reload-action)
+      * [intelmqctl configtest action](#intelmqctl-configtest-action)
+      * [intelmqctl status action](#intelmqctl-status-action)
+      * [intelmqctl enable action](#intelmqctl-enable-action)
+      * [intelmqctl disable action](#intelmqctl-disable-action)
+      * [intelmqctl add-to-botnet action](#intelmqctl-add-to-botnet-action)
+      * [intelmqctl remove-from-botnet action](#intelmqctl-remove-from-botnet-action)
    * [Scenarios](#scenarios)
-         * [Scenario 1 - botnet start command after bot configuration was manually removed](#scenario-1---botnet-start-command-after-bot-configuration-was-manually-removed)
-         * [Scenario 2 - botnet stop command after bot configuration was manually removed](#scenario-2---botnet-stop-command-after-bot-configuration-was-manually-removed)
-         * [Scenario 3 - botnet reload command after bot configuration was manually removed](#scenario-3---botnet-reload-command-after-bot-configuration-was-manually-removed)
-         * [Scenario 4 - botnet status command after bot configuration was manually removed](#scenario-4---botnet-status-command-after-bot-configuration-was-manually-removed)
+         * [Scenario 1](#scenario-1)
+         * [Scenario 2](#scenario-2)
+         * [Scenario 3](#scenario-3)
+         * [Scenario 4](#scenario-4)
    * [Issues](#issues)
       * [Issue 1 - Where to store init_system configuration parameter](#issue-1---where-to-store-init_system-configuration-parameter)
    * [TODO](#todo)
       * [Issues related to TODO that need to be discussed](#issues-related-to-todo-that-need-to-be-discussed)
          * [Debug related command](#debug-related-command)
-
 
 
 # Definitions
@@ -169,24 +146,36 @@ intelmqctl will always perform the normal checks between internal runtime config
 
 # intelmqctl
 
-By default, all commands will perform the action in background, not in foreground.
+**Rules & Checks:**
+* the sysadmin in order to remove a bot from the configuration which is still running. MUST first to stop and then remove the configuration, not the opposite.
+* will always execute the bot background, not in foreground.
+* will always provide the best log message in order to give additional information to sysadmin about the actions performed. 
+* will always check if there is any issue with configurations (runtime, defaults, pipeline) regarding all bots even if just one action to one bot has been executed.
+ * in case a bot is running but some configuration for that bot is missing in one of the files, the action will not be performed and sysadmin will receive a warning message
+ * intelmqctl will automatically re-add the missing configuration and ask to syadmin to re-run the command again, now with the configurations cleaned.
 
-**Note:** `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed. 
+
+**Syntax:**
+```
+intelmqctl <action command> [<bot_id> | botnet ] <flags>
+```
 
 **Flags:**
 
-* `--now`: this parameter will execute the bot automatically when the start action is perform, respecting the `run_mode`. This means:
- * if bot is configured with runtime parameter `run_mode: stream`, the bot will start and execute indefinetly, if 
- * if bot is configured with runtime parameter `run_mode: scheduled`, the bot will start and execute one time successfully (oneshot) and exit. 
-* `--debug`: debug is a mode to run the bot in foreground. `FIXME`: need to think about the schedule mode scenario.
+* `--now`: this parameter will execute the bot automatically without taking into account `run_mode`.
+* `--debug`: this parameter will execute the bot in debug mode which automatically run it in foreground in order to easily see the log lines in the console and the log level will also automatically set up to `DEBUG`.
+* `--filter`: this parameter will provide to sysadmin a quick way to apply a filter to which bots the action will take place. The filtering can be done using the configuration parameters as the following example:
+```
+intelmqctl start --filter "run_mode:scheduled, group:Collectors"
+```
 
 
-## intelmqctl start `<bot_id>`
+## intelmqctl start action
 
 **Command:**
 
 ```
-intelmqctl start `<bot_id>`
+intelmqctl start [<bot_id> | botnet ] <flags>
 ```
 
 **Procedure:**
@@ -206,12 +195,12 @@ intelmqctl start `<bot_id>`
      - if crontab configuration line does not exists, add configuration line on crontab such as `<schedule_time> <intelmq bot module> <bot_id> # <bot_id>`. In the end, write a log message "bot is schedule and will run at this time: `* * * * * `"
 
 
-## intelmqctl stop `<bot_id>`
+## intelmqctl stop action
 
 **Command:**
 
 ```
-intelmqct stop `<bot_id>`
+intelmqct stop [<bot_id> | botnet ] <flags>
 ```
 
 **Procedure:**
@@ -231,12 +220,12 @@ intelmqct stop `<bot_id>`
     - if crontab configuration line does not exists, do nothing. In the end, write a log message "bot is already stopped"
 
 
-## intelmqctl restart `<bot_id>`
+## intelmqctl restart action
 
 **Command:**
 
 ```
-intelmqctl restart `<bot_id>`
+intelmqctl restart [<bot_id> | botnet ] <flags>
 ```
 
 **Procedure:**
@@ -245,12 +234,12 @@ intelmqctl restart `<bot_id>`
 
 
 
-## intelmqctl reload `<bot_id>`
+## intelmqctl reload action
 
 **Command:**
 
 ```
-intelmqctl reload `<bot_id>`
+intelmqctl reload [<bot_id> | botnet ] <flags>
 ```
 
 **Procedure:**
@@ -279,11 +268,11 @@ intelmqctl reload `<bot_id>`
 **Please note** the above explanation is exemplifying an interactive mode of intelmqctl, however, there will be available additional parameters to automatically answer the questions which will allow to execute this command by scripts or other tools.
 
 
-## intelmqctl configtest <bot_id>
+## intelmqctl configtest action
 
 **Command:**
 ```
-intelmqctl configtest <bot_id>
+intelmqctl configtest [<bot_id> | botnet ] <flags>
 ```
 
 **Procedure:**
@@ -293,11 +282,11 @@ intelmqctl configtest <bot_id>
  * for bot check should give a generic message in case of something is failing saying "bot config is bad because ..."
 
 
-## intelctl status `<bot_id>`
+## intelmqctl status action
 
 **Command:**
 ```
-intelctl status `<bot_id>`
+intelctl status [<bot_id> | botnet ] <flags>
 ```
 
 **Procedure:**
@@ -332,11 +321,11 @@ Also intelmqctl should print the last 10 log lines from the log of this bot.
 Also intelmqctl should print the last 10 log lines from the log of this bot.
 
 
-## intelmqctl enable `<bot_id>`
+## intelmqctl enable action
 
 **Command:**
 ```
-intelctl enable `<bot_id>`
+intelctl enable [<bot_id> | botnet ] <flags>
 ```
 
 **Procedure:**
@@ -359,11 +348,11 @@ intelctl enable `<bot_id>`
     - intelmqctl will not perform any other action because there is a `intelmq.scheduled_bots_on_boot.service` which is always enable and will automatically write the crontab configuration accordingly to the all bots configured as `run_mode: scheduled` and `onboot: true`, therefore will write on crontab configuration the correct crontab entry to this bot enabled onboot. For more information please read "Run Modes with Process Management concept" section.
 
 
-## intelmqctl disable `<bot_id>`
+## intelmqctl disable action
 
 **Command:**
 ```
-intelctl disable `<bot_id>`
+intelctl disable [<bot_id> | botnet ] <flags>
 ```
 
 **Procedure:**
@@ -386,114 +375,34 @@ intelctl disable `<bot_id>`
     - intelmqctl will not perform any other action because there is a `intelmq.scheduled_bots_on_boot.service` which is always enable and will automatically write the crontab configuration accordingly to the all bots configured as `run_mode: scheduled` and `onboot: true`, therefore will not write on crontab configuration anything related to this bot disabled onboot. For more information please read "Run Modes with Process Management concept" section.
 
 
-## intelmqctl add-to-botnet `<bot_id>`
+## intelmqctl add-to-botnet action
 
 **Command:**
 ```
-intelctl add-to-botnet `<bot_id>`
+intelctl add-to-botnet [<bot_id>] <flags>
 ```
 
 **Procedure:**
 
+* command only applies to bots, not to botnet
 * `intelmqctl` will perform the usual checks and if no errors found, `intelmqctl` will configure the botnet configuration for the <bot_id> with `botnet: true`, independently of the `run_mode` and `process_manager` configuration parameter.
 * `intelmqctl` will not perform any other actions because this `add-to-botnet` action only change the runtime configuration parameter, without perform start/stop/restart/reload actions.
 * `intelmqctl` will log a message "<bot_id> runtime configuration has been changed in order to add the bot to the botnet but the bot will keep is current status (running or stopped). Please check bot current status and then perform, if needs, the action to start/stop/restart"
 
 
-## intelmqctl remove-from-botnet `<bot_id>`
+## intelmqctl remove-from-botnet action
 
 **Command:**
 ```
-intelctl remove-from-botnet `<bot_id>`
+intelctl remove-from-botnet [<bot_id> ] <flags>
 ```
 
 **Procedure:**
 
+* command only applies to bots, not to botnet
 * `intelmqctl` will perform the usual checks and if no errors found, `intelmqctl` will configure the botnet configuration for the <bot_id> with `botnet: false`, independently of the `run_mode` and `process_manager` configuration parameter.
 * `intelmqctl` will not perform any other actions because this `remove-from-botnet` action only change the runtime configuration parameter, without perform start/stop/restart/reload actions.
 * `intelmqctl` will log a message "<bot_id> runtime configuration has been changed in order to remove the bot from the botnet but the bot will keep is current status (running or stopped). Please check bot current status and then perform, if needs, the action to start/stop/restart"
-
-
-
-# Botnet commands
-
-## Overview
-
-Only bots which are part of the botnet can be start/stop/restart/reload/status with botnet commands. Please note that if IntelMQ is configured with `init_system: PID`, botnet cannot start on-boot because it relies on PID files, not on init system management like systemd.
-
-**Please, ensure that you have good understand about botnet concept (see Definitions section for more information), otherwise can be misleading.
-
-## Commands
-
-Principles:
-1. .runtime.conf always have the last successfully runtime configuration
-2. the user first MUST to stop and then remove the configuration, not the opposite
-
-
-### Flags
-
-* `intelmqctl start --stream-bots`
-* `intelmqctl start --scheduled-bots`
-
-### FIXME
-
-intelmqctl start
-    iterate over all bots in .runtime.conf with `botnet: True`
-        if in runtime.conf
-            pass
-        if not in runtime.conf and running
-            the bot will be stopped using the old `.runtime.conf` and additionally the runtime configuration of the (previously removed) bot will be again written to the current `runtime.conf`. 
-    iterate over all bots in runtime.conf with `botnet: True`
-        if running:
-            pass
-        if not running:
-            start
-            update .runtime.conf
-        add bot to .runtime.conf
-
-intelmqctl stop
-    iterate over all bots in .runtime.conf with `botnet: True`
-        stop bot
-        if not in runtime.conf
-            the runtime.conf configuration of the (previously removed) bot will be again written to the current `runtime.conf`. .
-    iterate over all bots in runtime.conf with `botnet: True`
-        if running:
-            stop
-
-intelmqctl restart
-    iterate over all bots in .runtime.conf with `botnet: True` and for each one execute `intelmqctl restart `<bot_id>`
-
-intelmqctl reload
-    iterate over all bots in .runtime.conf with `botnet: True` and for each one execute `intelmqctl reload `<bot_id>`
-
-intelmqctl status
-    bot_id | run_mode | scheduled_time (if applicable) | status | enabled_on_boot | configtest
-
-    DO NOT log the last 10 lines per each bot, too much!!!
-
-
-
-`FIXME`: we also need a command to show the status or even other actions to all bots, including the ones that does not belong to botnet.
-
-
-# On-boot commands
-
-intelmqctl enable
-    iterate over all bots in .runtime.conf with `botnet: True` and for each one execute `intelmqctl enable `<bot_id>`
-
-intelmqctl disable
-    iterate over all bots in .runtime.conf with `botnet: True` and for each one execute `intelmqctl disable `<bot_id>`
-
-# Other commands
-
-intelmqctl configtest
-     will perform usual checks on configuration, including compare the past runtime.conf with the new one and see if bots which are running were removed from the new runtime.conf without being stopped properly.
-
-intelmqctl list
-    bot_id | run_mode | scheduled_time (if applicable) | is on botnet
-
-
-
 
 
 
@@ -501,11 +410,13 @@ intelmqctl list
 
 # Scenarios
 
-### Scenario 1 - botnet start command after bot configuration was manually removed
+### Scenario 1
+
+**Scenario:** botnet start command after bot configuration was manually removed
 
 Please note that this scenario is using botnet commands, therefore, it's crutial to have a good understand about botnet concept. Also, every single mentioned to "bots", except mentioned explicity, means bots which are part of the botnet.
 
-1. In this case there are 10 bots configured as `botnet: True`. Admin execute the command to start the botnet.
+1. In this case there are 10 bots configured as `botnet: true`. Admin execute the command to start the botnet.
 2. Admin accidentally remove manually a bot with `bot_id: my-bot-1` from admin runtime configuration without stopping it previously.
 3. Admin add manually a new bot with `bot_id: my-bot-2` to admin runtime configuration.
 4. Admin execute the command to start the botnet which will do the following:
@@ -516,7 +427,9 @@ Please note that this scenario is using botnet commands, therefore, it's crutial
 
 The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
 
-### Scenario 2 - botnet stop command after bot configuration was manually removed
+### Scenario 2
+
+**Scenario:** botnet stop command after bot configuration was manually removed
 
 Please note that this scenario is using botnet commands, therefore, it's crutial to have a good understand about botnet concept. Also, every single mentioned to "bots", except mentioned explicity, means bots which are part of the botnet.
 
@@ -534,7 +447,9 @@ Please note that this scenario is using botnet commands, therefore, it's crutial
 The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
 
 
-### Scenario 3 - botnet reload command after bot configuration was manually removed
+### Scenario 3
+
+**Scenario:** botnet reload command after bot configuration was manually removed
 
 Please note that this scenario is using botnet commands, therefore, it's crutial to have a good understand about botnet concept. Also, every single mentioned to "bots", except mentioned explicity, means bots which are part of the botnet.
 
@@ -553,7 +468,9 @@ Please note that this scenario is using botnet commands, therefore, it's crutial
 The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
 
 
-### Scenario 4 - botnet status command after bot configuration was manually removed
+### Scenario 4
+
+**Scenario:** botnet status command after bot configuration was manually removed
 
 Please note that this scenario is using botnet commands, therefore, it's crutial to have a good understand about botnet concept. Also, every single mentioned to "bots", except mentioned explicity, means bots which are part of the botnet.
 
@@ -569,15 +486,6 @@ Please note that this scenario is using botnet commands, therefore, it's crutial
   
 
 The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
-
-
-
-
-
-
-
-
-
 
 
 
