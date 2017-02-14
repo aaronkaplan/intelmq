@@ -1,6 +1,7 @@
 Table of Contents
 =================
 
+   * [Table of Contents](#table-of-contents)
    * [Definitions](#definitions)
    * [Concepts](#concepts)
       * [Process management](#process-management)
@@ -8,54 +9,37 @@ Table of Contents
       * [Onboot](#onboot)
       * [Run mode](#run-mode)
       * [Run Modes with Process Management](#run-modes-with-process-management)
-      * [Configuration](#configuration)
-   * [Bot commands](#bot-commands)
-      * [Usual commands](#usual-commands)
-         * [intelmqctl start &lt;bot_id&gt;](#intelmqctl-start-bot_id)
-            * [Command](#command)
-               * [Flags](#flags)
-            * [General procedure](#general-procedure)
-            * [Specific procedure](#specific-procedure)
-         * [intelmqctl stop &lt;bot_id&gt;](#intelmqctl-stop-bot_id)
-            * [Command](#command-1)
-            * [General procedure](#general-procedure-1)
-            * [Specific procedure](#specific-procedure-1)
-         * [intelmqctl restart &lt;bot_id&gt;](#intelmqctl-restart-bot_id)
-            * [Command](#command-2)
-            * [General procedure](#general-procedure-2)
-         * [intelmqctl reload &lt;bot_id&gt;](#intelmqctl-reload-bot_id)
-            * [Command](#command-3)
-            * [General procedure](#general-procedure-3)
-            * [Specific procedure](#specific-procedure-2)
-         * [intelmqctl configtest ](#intelmqctl-configtest-)
-            * [Command](#command-4)
-            * [General procedure](#general-procedure-4)
-         * [intelctl status &lt;bot_id&gt;](#intelctl-status-bot_id)
-            * [Command](#command-5)
-            * [General procedure](#general-procedure-5)
-            * [Specific Procedure](#specific-procedure-3)
-      * [On-boot related commands](#on-boot-related-commands)
-         * [intelmqctl enable &lt;bot_id&gt;](#intelmqctl-enable-bot_id)
-            * [Command](#command-6)
-            * [General procedure](#general-procedure-6)
-            * [Specific Procedure](#specific-procedure-4)
-         * [intelmqctl disable &lt;bot_id&gt;](#intelmqctl-disable-bot_id)
-            * [Command](#command-7)
-            * [General procedure](#general-procedure-7)
-            * [Specific Procedure](#specific-procedure-5)
-      * [Botnet related commands](#botnet-related-commands)
-            * [intelmqctl add-to-botnet &lt;bot_id&gt;](#intelmqctl-add-to-botnet-bot_id)
-            * [Command](#command-8)
-            * [General procedure](#general-procedure-8)
-            * [Specific Procedure](#specific-procedure-6)
-            * [intelmqctl remove-from-botnet &lt;bot_id&gt;](#intelmqctl-remove-from-botnet-bot_id)
-            * [Command](#command-9)
-            * [General procedure](#general-procedure-9)
-            * [Specific Procedure](#specific-procedure-7)
+      * [Configurations (admin vs internal)](#configurations-admin-vs-internal)
+         * [Configurations Check Procedure](#configurations-check-procedure)
+   * [intelmqctl](#intelmqctl)
+      * [intelmqctl start &lt;bot_id&gt;](#intelmqctl-start-bot_id)
+      * [intelmqctl stop &lt;bot_id&gt;](#intelmqctl-stop-bot_id)
+      * [intelmqctl restart &lt;bot_id&gt;](#intelmqctl-restart-bot_id)
+         * [General procedure](#general-procedure)
+      * [intelmqctl reload &lt;bot_id&gt;](#intelmqctl-reload-bot_id)
+         * [General procedure](#general-procedure-1)
+         * [Specific procedure](#specific-procedure)
+      * [intelmqctl configtest ](#intelmqctl-configtest-)
+         * [General procedure](#general-procedure-2)
+      * [intelctl status &lt;bot_id&gt;](#intelctl-status-bot_id)
+         * [General procedure](#general-procedure-3)
+         * [Specific Procedure](#specific-procedure-1)
+      * [intelmqctl enable &lt;bot_id&gt;](#intelmqctl-enable-bot_id)
+         * [General procedure](#general-procedure-4)
+         * [Specific Procedure](#specific-procedure-2)
+      * [intelmqctl disable &lt;bot_id&gt;](#intelmqctl-disable-bot_id)
+         * [General procedure](#general-procedure-5)
+         * [Specific Procedure](#specific-procedure-3)
+      * [intelmqctl add-to-botnet &lt;bot_id&gt;](#intelmqctl-add-to-botnet-bot_id)
+         * [General procedure](#general-procedure-6)
+         * [Specific Procedure](#specific-procedure-4)
+      * [intelmqctl remove-from-botnet &lt;bot_id&gt;](#intelmqctl-remove-from-botnet-bot_id)
+         * [General procedure](#general-procedure-7)
+         * [Specific Procedure](#specific-procedure-5)
    * [Botnet commands](#botnet-commands)
       * [Overview](#overview)
       * [Commands](#commands)
-         * [Flags](#flags-1)
+         * [Flags](#flags)
          * [FIXME](#fixme)
    * [On-boot commands](#on-boot-commands)
    * [Other commands](#other-commands)
@@ -69,6 +53,7 @@ Table of Contents
    * [TODO](#todo)
       * [Issues related to TODO that need to be discussed](#issues-related-to-todo-that-need-to-be-discussed)
          * [Debug related command](#debug-related-command)
+
 
 
 # Definitions
@@ -105,7 +90,7 @@ Process management on IntelMQ has two modes on this proposal: systemd and PID. C
 
 ## Botnet
 
-**botnet:** is a concept which have the following principles:
+Botnet is a concept which have the following principles:
 
 * botnet is a group of bots which are configured with a parameter `botnet: True`.
 * each bot that belongs to botnet should be considered as a bot working and running properly in a organization production environment.
@@ -150,8 +135,8 @@ An IntelMQ bot or botnet configured with onboot enabled will start automatically
 ## Run mode
 
 Each bot can be configured with a specific run mode such as:
- * **Stream:** bot will run and process messages indefinitely.
- * **Scheduled:** bot will start at the defined `schedule_time`, run one successfully time and then exit.
+* **Stream:** bot will run and process messages indefinitely.
+* **Scheduled:** bot will start at the defined `schedule_time`, run one successfully time and then exit.
 
 **on runtime configuration:**
 ```
@@ -169,117 +154,110 @@ Each bot can be configured with a specific run mode such as:
 
 
 
-## Configuration
+## Configurations (admin vs internal)
 
-The reason why `intelmqctl` will always keep a currently successfully running state version of admin configurations, as we call it, the internal configurations, is to prevent bad configurations changes on admin configurations which can put the IntelMQ in a unstable mode. **However**, from a usual admin perspective, there is no need to be aware of this because are just internal files and an internal procedure used by intelmqctl to manage the system. In situations where intelmqctl detects some insconsitence in the current running state and the admin configurations, intelmqctl will require action from admin if intelmqctl is being run in interactive mode or if not, will be available the possibility to specify flags to automatically perform the actions without need interaction.
+The usual configurations files will now be copied every time `intelmqctl` successfully run to an hidden files located on `/var/run/intelmq`. The reason why `intelmqctl` will always keep a successfully running state version of admin configurations, as we call it, the internal configurations, is to prevent bad configurations changes on admin configuration files which can put the IntelMQ in a unstable mode. **However**, from a usual admin perspective, there is no need to be aware of this because are just internal files and an internal procedure used by intelmqctl to manage the system. In situations where intelmqctl detects some insconsitence in the current running state and the admin configurations, intelmqctl will require action from admin if intelmqctl is being run in interactive mode or if not, will be available the possibility to specify flags to automatically perform the actions without need interaction.
 
-
-
-
-# Bot commands
-
-Bot commands are commands which can only apply to one bot therefore requires a `<bot_id>`. The commands start/stop/restart/reload/status are the usual commands, however there are more commands implemented such as `enable`, `disable`, `add-to-botnet`, `remove-from-botnet`, `debug` and `scheduler-exec` which have a specific context explained in the following description of each command.
+In a nutshell, intelmqctl will always have a copy of the three main configuration files (runtime.conf, defaults.conf and pipeline.conf) and will use them to detect possible issues, such as, bots which are running but not being managed since they were removed manually from configuration files.
 
 
-## Usual commands
+### Configurations Check Procedure
+intelmqctl will always perform the normal checks between internal runtime configuration and admin runtime configuration for all bots even if the `intelmqctl` command was executed just to only one bot. This checks will allow the sysadmin to be aware that something is wrong with the configuration even if sysadmin is executing other command with intelmqctl, therefore, a warning message will always show in the end of the command output.
 
-### intelmqctl start `<bot_id>`
+`FIXME`: explain more about this checks and how intelmqctl add the bot configuration to admin runtime configuration from internal runtime configuration.
 
-#### Command
 
-```
-intelmqctl start `<bot_id>`
-```
+# intelmqctl
 
-**Note:** by default, all commands will perform the action in background, not in foreground.
+By default, all commands will perform the action in background, not in foreground.
 
-##### Flags
+**Note:** `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed. 
+
+**Flags:**
 
 * `--now`: this parameter will execute the bot automatically when the start action is perform, respecting the `run_mode`. This means:
  * if bot is configured with runtime parameter `run_mode: stream`, the bot will start and execute indefinetly, if 
  * if bot is configured with runtime parameter `run_mode: scheduled`, the bot will start and execute one time successfully (oneshot) and exit. 
 * `--debug`: debug is a mode to run the bot in foreground. `FIXME`: need to think about the schedule mode scenario.
 
-#### General procedure
 
-* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
+## intelmqctl start `<bot_id>`
+
+**Command:**
+
+```
+intelmqctl start `<bot_id>`
+```
+
+**Procedure:**
+
 * `intelmqctl` will not perform any action to a bot which is already running.
-* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section. For example, if configuration parameters were changed, intelmqctl will detect that and will log a message "To reload the new configuration, please execute reload action command.".
-
-#### Specific procedure
-
-* **Run mode: stream**
-  - **Process manager: PID**
+* if **Run mode: stream**
+  - if **Process manager: PID**
     - intelmqctl will check if there is a PID file
     - if PID file exists, do nothing
     - if PID file does not exist, execute start action on bot and write PID file
-  - **Process manager: systemd**
+  - if **Process manager: systemd**
     - execute `systemctl start <module@bot_id>`
-* **Run mode: scheduled**
-  - **Process manager: PID and systemd**
+* if **Run mode: scheduled**
+  - if **Process manager: PID and systemd**
     - intelmqctl will check if crontab configuration line for the bot is already on crontab:
      - if crontab configuration line exists, do nothing. In the end, write a log message "bot is already running"
      - if crontab configuration line does not exists, add configuration line on crontab such as `<schedule_time> intelmq <python binary location> <intelmqctl location>/intelmqctl start <bot_id> --now # <bot_id>`. In the end, write a log message "bot is schedule and will run at this time: `* * * * * `"
 
 
-### intelmqctl stop `<bot_id>`
+## intelmqctl stop `<bot_id>`
 
-#### Command
+**Command:**
 
 ```
 intelmqct stop `<bot_id>`
 ```
 
-#### General procedure
-
-* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
+**Procedure:**
 * `intelmqctl` will not perform any action to a bot which is already stopped.
-* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
-
-#### Specific procedure
-
-* **Run mode: stream**
-  - **Process manager: PID**
+* if **Run mode: stream**
+  - if **Process manager: PID**
     - intelmqctl will check if there is a PID file
     - if PID file exists, execute stop action on the bot and remove PID file
     - if PID file does not exist, do nothing
-  - **Process manager: systemd**
+  - if **Process manager: systemd**
     - execute `systemctl stop <module@bot_id>`
-* **Run mode: scheduled**
-  - **Process manager: PID and systemd**
+* if **Run mode: scheduled**
+  - if **Process manager: PID and systemd**
     - intelmqctl will check if crontab configuration line for the bot is still on crontab
     - if crontab configuration line exists, remove configuration line on crontab. In the end, write a log message "bot is unschedule."
     - if crontab configuration line does not exists, do nothing. In the end, write a log message "bot is already stopped"
 
-### intelmqctl restart `<bot_id>`
+## intelmqctl restart `<bot_id>`
 
-#### Command
+**Command:**
 
 ```
 intelmqctl restart `<bot_id>`
 ```
 
-#### General procedure
+### General procedure
 
 * `intelmqctl` will use the stop action command and start action command to perform the restart, therefore, there is no additional information required here, is only to actions commands being executed already explained.
 
 
 
-### intelmqctl reload `<bot_id>`
+## intelmqctl reload `<bot_id>`
 
-#### Command
+**Command:**
 
 ```
 intelmqctl reload `<bot_id>`
 ```
 
-#### General procedure
+### General procedure
 
 * `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
 * `intelmqctl` will perform actions to a bot and/or runtime configuration depending on the checks results (described in `specific procedure`).
 * `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
 
-#### Specific procedure
+### Specific procedure
 
 * `intelmqctl` will start perform multiple checks in order to prevent tracking issues and other possible issues related to correct procedures which are not being followed by admin. The checks will be described in this section. 
 
@@ -308,34 +286,34 @@ intelmqctl reload `<bot_id>`
     `FIXME`: dont know what should be our procedure if a scheduled bot is running when this reload action is performing. Should reload normally like stream bots? should we just ignore it? log a message about this "finding"?
     **Sebastian said**: ignore it because the current behavior is always ignore the SIGHUP and finish the process() method, then, when it goes to the next iteration, it gets the SIGHUP and reload. HOWEVER, since schedule bots are --oneshot internally, it will always ignore, therefore, WE NEED TO DOCUMENT THIS CORRECTLY.
 
-### intelmqctl configtest <bot_id>
+## intelmqctl configtest <bot_id>
 
-#### Command
+**Command:**
 ```
 intelmqctl configtest <bot_id>
 ```
 
-#### General procedure
+### General procedure
 
 * there are 2 types of checks. check if json is ok and check if parameters of bots are ok.
  * for json check should give a generic message in case of something is failing saying "json is bad"
  * for bot check should give a generic message in case of something is failing saying "bot config is bad because ..."
 
 
-### intelctl status `<bot_id>`
+## intelctl status `<bot_id>`
 
-#### Command
+**Command:**
 ```
 intelctl status `<bot_id>`
 ```
 
-#### General procedure
+### General procedure
 
 * `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
 * `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
 
 
-#### Specific Procedure
+### Specific Procedure
 
 * **Run mode: stream**
   - **Process manager: PID**
@@ -367,22 +345,20 @@ Also intelmqctl should print the last 10 log lines from the log of this bot.
 Also intelmqctl should print the last 10 log lines from the log of this bot.
 
 
-## On-boot related commands
+## intelmqctl enable `<bot_id>`
 
-### intelmqctl enable `<bot_id>`
-
-#### Command
+**Command:**
 ```
 intelctl enable `<bot_id>`
 ```
 
-#### General procedure
+### General procedure
 
 * `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
 * `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
 
 
-#### Specific Procedure
+### Specific Procedure
 
 * `intelmqctl` perform the usual checks and if no errors found, `intelmqctl` will configure the runtime configuration for the <bot_id> accordingly to the following procedure:
 
@@ -402,20 +378,20 @@ intelctl enable `<bot_id>`
     - intelmqctl will not perform any other action because there is a `intelmq.scheduled_bots_on_boot.service` which is always enable and will automatically write the crontab configuration accordingly to the all bots configured as `run_mode: scheduled` and `onboot: true`, therefore will write on crontab configuration the correct crontab entry to this bot enabled onboot. For more information please read "Run Modes with Process Management concept" section.
 
 
-### intelmqctl disable `<bot_id>`
+## intelmqctl disable `<bot_id>`
 
-#### Command
+**Command:**
 ```
 intelctl disable `<bot_id>`
 ```
 
-#### General procedure
+### General procedure
 
 * `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
 * `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
 
 
-#### Specific Procedure
+### Specific Procedure
 
 * `intelmqctl` perform the usual checks and if no errors found, `intelmqctl` will configure the runtime configuration for the <bot_id> with `onboot: false`, independently of the `run_mode` and `process_manager` configuration parameter.
 
@@ -435,21 +411,19 @@ intelctl disable `<bot_id>`
     - intelmqctl will not perform any other action because there is a `intelmq.scheduled_bots_on_boot.service` which is always enable and will automatically write the crontab configuration accordingly to the all bots configured as `run_mode: scheduled` and `onboot: true`, therefore will not write on crontab configuration anything related to this bot disabled onboot. For more information please read "Run Modes with Process Management concept" section.
 
 
-## Botnet related commands
+## intelmqctl add-to-botnet `<bot_id>`
 
-#### intelmqctl add-to-botnet `<bot_id>`
-
-#### Command
+**Command:**
 ```
 intelctl add-to-botnet `<bot_id>`
 ```
 
-#### General procedure
+### General procedure
 
 * `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
 * `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
 
-#### Specific Procedure
+### Specific Procedure
 
 * `intelmqctl` will perform the usual checks and if no errors found, `intelmqctl` will configure the botnet configuration for the <bot_id> with `botnet: true`, independently of the `run_mode` and `process_manager` configuration parameter.
 
@@ -457,19 +431,19 @@ intelctl add-to-botnet `<bot_id>`
 
 * `intelmqctl` will log a message "<bot_id> runtime configuration has been changed in order to add the bot to the botnet but the bot will keep is current status (running or stopped). Please check bot current status and then perform, if needs, the action to start/stop/restart"
 
-#### intelmqctl remove-from-botnet `<bot_id>`
+## intelmqctl remove-from-botnet `<bot_id>`
 
-#### Command
+**Command:**
 ```
 intelctl remove-from-botnet `<bot_id>`
 ```
 
-#### General procedure
+### General procedure
 
 * `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
 * `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
 
-#### Specific Procedure
+### Specific Procedure
 
 * `intelmqctl` will perform the usual checks and if no errors found, `intelmqctl` will configure the botnet configuration for the <bot_id> with `botnet: false`, independently of the `run_mode` and `process_manager` configuration parameter.
 
