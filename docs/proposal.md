@@ -1,6 +1,7 @@
 Table of Contents
 =================
 
+   * [Table of Contents](#table-of-contents)
    * [Definitions](#definitions)
    * [Concepts](#concepts)
       * [Process management](#process-management)
@@ -26,11 +27,6 @@ Table of Contents
       * [Scenario 2](#scenario-2)
       * [Scenario 3](#scenario-3)
       * [Scenario 4](#scenario-4)
-   * [Issues](#issues)
-      * [Issue 1 - Where to store init_system configuration parameter](#issue-1---where-to-store-init_system-configuration-parameter)
-   * [TODO](#todo)
-      * [Issues related to TODO that need to be discussed](#issues-related-to-todo-that-need-to-be-discussed)
-         * [Debug related command](#debug-related-command)
 
 
 # Definitions
