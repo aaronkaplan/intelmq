@@ -300,9 +300,6 @@ intelctl status `<bot_id>`
 
 **Procedure:**
 
-* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
-* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
-
 * Run mode: stream
   - Process manager: PID
     - intelmqctl will check if there is a PID file
@@ -316,7 +313,7 @@ intelctl status `<bot_id>`
       - if configured on crontab, log message saying the current status is "running"
       - if not configured on crontab, log message saying the current status is "not running"
 
-* **Ouput Proposal Example 1:**
+**Ouput Proposal Example 1:**
 
 | bot_id    | run_mode    | scheduled_time (if applicable) | is on botnet | status             | enabled_on_boot | configtest   |
 |-----------|-------------|--------------------------------|--------------|--------------------|-----------------|--------------|
@@ -324,7 +321,7 @@ intelctl status `<bot_id>`
 
 Also intelmqctl should print the last 10 log lines from the log of this bot.
 
-* **Ouput Proposal Example 2:**
+**Ouput Proposal Example 2:**
 
 | bot_id    | run_mode    | scheduled_time (if applicable) | is on botnet | status             | enabled_on_boot | configtest   |
 |-----------|-------------|--------------------------------|--------------|--------------------|-----------------|--------------|
@@ -341,12 +338,6 @@ intelctl enable `<bot_id>`
 ```
 
 **Procedure:**
-
-* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
-* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
-
-
-### Specific Procedure
 
 * `intelmqctl` perform the usual checks and if no errors found, `intelmqctl` will configure the runtime configuration for the <bot_id> accordingly to the following procedure:
 
@@ -375,13 +366,7 @@ intelctl disable `<bot_id>`
 
 **Procedure:**
 
-* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
-* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
-
-
-### Specific Procedure
-
-* `intelmqctl` perform the usual checks and if no errors found, `intelmqctl` will configure the runtime configuration for the <bot_id> with `onboot: false`, independently of the `run_mode` and `process_manager` configuration parameter.
+* `intelmqctl` perform the usual checks and if no errors found, `intelmqctl` will configure the runtime configuration for the <bot_id> accordingly to the following procedure:
 
 * Run mode: stream
   - Process manager: PID
@@ -395,7 +380,7 @@ intelctl disable `<bot_id>`
     - intelmqctl will not perform any action and will change `onboot` configuration parameter to `false` value.
     - In the end, write a log message "IntelMQ does not support onboot configuration in PID process management. Please use systemd process management"
   - Process manager: systemd
-    - intelmqctl will change `onboot` configuration parameter to `true` value.
+    - intelmqctl will change `onboot` configuration parameter to `false` value.
     - intelmqctl will not perform any other action because there is a `intelmq.scheduled_bots_on_boot.service` which is always enable and will automatically write the crontab configuration accordingly to the all bots configured as `run_mode: scheduled` and `onboot: true`, therefore will not write on crontab configuration anything related to this bot disabled onboot. For more information please read "Run Modes with Process Management concept" section.
 
 
@@ -408,16 +393,10 @@ intelctl add-to-botnet `<bot_id>`
 
 **Procedure:**
 
-* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
-* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
-
-### Specific Procedure
-
 * `intelmqctl` will perform the usual checks and if no errors found, `intelmqctl` will configure the botnet configuration for the <bot_id> with `botnet: true`, independently of the `run_mode` and `process_manager` configuration parameter.
-
 * `intelmqctl` will not perform any other actions because this `add-to-botnet` action only change the runtime configuration parameter, without perform start/stop/restart/reload actions.
-
 * `intelmqctl` will log a message "<bot_id> runtime configuration has been changed in order to add the bot to the botnet but the bot will keep is current status (running or stopped). Please check bot current status and then perform, if needs, the action to start/stop/restart"
+
 
 ## intelmqctl remove-from-botnet `<bot_id>`
 
@@ -428,15 +407,8 @@ intelctl remove-from-botnet `<bot_id>`
 
 **Procedure:**
 
-* `intelmqctl` will perform the normal checks between internal runtime configuration and admin runtime configuration as mentioned on "Runtime configuration concepts" section.
-* `intelmqctl` will always provide the best log message in order to give additional information to admin about the actions performed according to this general procedures described here, including "Runtime configuration concepts" section.
-
-### Specific Procedure
-
 * `intelmqctl` will perform the usual checks and if no errors found, `intelmqctl` will configure the botnet configuration for the <bot_id> with `botnet: false`, independently of the `run_mode` and `process_manager` configuration parameter.
-
 * `intelmqctl` will not perform any other actions because this `remove-from-botnet` action only change the runtime configuration parameter, without perform start/stop/restart/reload actions.
-
 * `intelmqctl` will log a message "<bot_id> runtime configuration has been changed in order to remove the bot from the botnet but the bot will keep is current status (running or stopped). Please check bot current status and then perform, if needs, the action to start/stop/restart"
 
 
