@@ -22,10 +22,10 @@ Table of Contents
       * [intelmqctl add-to-botnet action](#intelmqctl-add-to-botnet-action)
       * [intelmqctl remove-from-botnet action](#intelmqctl-remove-from-botnet-action)
    * [Scenarios](#scenarios)
-         * [Scenario 1](#scenario-1)
-         * [Scenario 2](#scenario-2)
-         * [Scenario 3](#scenario-3)
-         * [Scenario 4](#scenario-4)
+      * [Scenario 1](#scenario-1)
+      * [Scenario 2](#scenario-2)
+      * [Scenario 3](#scenario-3)
+      * [Scenario 4](#scenario-4)
    * [Issues](#issues)
       * [Issue 1 - Where to store init_system configuration parameter](#issue-1---where-to-store-init_system-configuration-parameter)
    * [TODO](#todo)
@@ -410,7 +410,7 @@ intelctl remove-from-botnet [<bot_id> ] <flags>
 
 # Scenarios
 
-### Scenario 1
+## Scenario 1
 
 **Scenario:** botnet start command after bot configuration was manually removed
 
@@ -427,7 +427,7 @@ Please note that this scenario is using botnet commands, therefore, it's crutial
 
 The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
 
-### Scenario 2
+## Scenario 2
 
 **Scenario:** botnet stop command after bot configuration was manually removed
 
@@ -447,7 +447,7 @@ Please note that this scenario is using botnet commands, therefore, it's crutial
 The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
 
 
-### Scenario 3
+## Scenario 3
 
 **Scenario:** botnet reload command after bot configuration was manually removed
 
@@ -468,7 +468,7 @@ Please note that this scenario is using botnet commands, therefore, it's crutial
 The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
 
 
-### Scenario 4
+## Scenario 4
 
 **Scenario:** botnet status command after bot configuration was manually removed
 
