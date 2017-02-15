@@ -26,7 +26,6 @@ Table of Contents
       * [Scenario 1](#scenario-1)
       * [Scenario 2](#scenario-2)
       * [Scenario 3](#scenario-3)
-      * [Scenario 4](#scenario-4)
 
 
 # Definitions
@@ -457,25 +456,5 @@ Please note that this scenario is using botnet commands, therefore, it's crutial
 
   * if "Y", intelmqctl remove the bot configuration from runtime configuration (internal and admin configurations) and also check in all IntelMQ system if there is some additional internal configurations that are still having configured that bot.
   * if "N", intelmqctl add the bot configuration stored in internal runtime configuration to the admin runtime configuration in order to keep the admin runtime configuration up to date accordingly.
-
-The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
-
-
-## Scenario 4
-
-**Scenario:** botnet status command after bot configuration was manually removed
-
-Please note that this scenario is using botnet commands, therefore, it's crutial to have a good understand about botnet concept. Also, every single mentioned to "bots", except mentioned explicity, means bots which are part of the botnet.
-
-1. In this case there are 10 bots configured as `botnet: True`. Admin execute the command to start the botnet.
-2. Admin accidentally remove manually a bot with `bot_id: my-bot-1` from admin runtime configuration without stopping it previously.
-3. Admin add manually a bot with `bot_id: my-bot-666` to admin runtime configuration with the configuration parameter `botnet: True`.
-3. Admin execute the command to status the botnet which will do the following:
- * execute status command and for each specific situation do the following:
-  1. log a message providing information to the admin explaining that bot with `bot_id: my-bot-666` is with stopped status.
-  2. log a message providing information to the admin explaining that all the other bots, except the bot with `bot_id: my-bot-1`, are with running status.
-  3. log a message providing information to the admin explaining that bot with `bot_id: my-bot-1` is with unstable running status, due the missing bot configuration on admin runtime configuration.
-  `FIXME`: what do we should suggest to the user to fix the problem? Should we just print the bot configuration from internal runtime configuration and ask the user to copy and paste? OR say to run `intelmqctl stop my-bot-1 --force`
-  
 
 The **correct procedure** is stop bot first and then remove bot configuration from admin runtime configuration.
