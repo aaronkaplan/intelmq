@@ -1,3 +1,13 @@
+Overall feedback
+=================
+  * too complicated. It tries to solve independent things at once in one document --> split it!
+  * look and read job scheduluer systems (luigi, etc). There are plenty of them. We can re-use stuff!
+  * missing concept: every bot MUST have a self-test and stats-component. This can be used for the ctl tool to check if the internal state of a bot is OK.
+  * define test cases upfront for the new behaviour!
+  * use RFC-ish MUST, MAY, SHALL
+  
+More comments inline marked as "XXX comment"
+
 Table of Contents
 =================
 
@@ -35,12 +45,16 @@ Table of Contents
 * **production environment:** system that belongs to production environment is considered a system that should never stop and should work properly all the time.
 * **{runtime, defaults, pipeline} configuration:** term to mention the configuration without specifying if internal or admin configuration because is not required for the explanation since it's not revelevant.
 * **admin {runtime, defaults, pipeline} configuration:** a configuration file used by IntelMQ sysadmin and also used by intelmqctl.
+XXX comment: where is this admin config? Please clarify that this is the config files which an admin MAY edit (as opposed to internal config)
 * **internal {runtime, defaults, pipeline} configuration:** a hidden configuration file only used by intelmqctl to track of the last successfully configuration used to perform some action through intelmqctl. This file is located in `/var/run/intelmq/` and should not be manually changed.
 * **`process_manager: "pid/systemd"`**: is a parameter on defaults configuration which will define the process manager that IntelMQ will use to manage the bots.
 * **`botnet: true/false`** is a parameter of runtime configuration per each bot to define if a bot is part of the botnet or not.
 * **`onboot: true/false`** is a parameter of runtime configuration per each bot to define if a bot will start on boot.
 * **`botnet_onboot: true/false`** is a parameter of defaults configuration which will define if the bots configured as part of the botnet will start onboot.
+XXX comment: botnet_onboot is not necessary
+
 * **`run_mode: <scheduled/stream>`** is a parameter of runtime configuration per each bot to define how bot should run.
+XXX comment: I prefer the word "continuous" to stream. 
  - **`stream`:** this value will allow the bot to run and process messages indefinitely.
  - **`scheduled`:** this value will allow the bot to start at `schedule_time` (bot parameter), run one successfully time and then exit.
 * **`schedule_time`:** is a parameter of runtime configuration per each bot to define in which specific scheduled time the bot should run  This parameter needs to be defined using crontab syntax. Please note that this parameter is only applicable to bots configured as `scheduled` run_mode.
@@ -50,6 +64,8 @@ Table of Contents
 ## Process management
 
 Process management on IntelMQ has two modes on this proposal: systemd and PID. Changing on IntelMQ configuration the process management to PID will work as always worked before. Using systemd to do process management will rely on systemd to manage the IntelMQ system.
+
+XXX comment: process manager is independent of run mode (in an abstract sense). Let's keep this separated.
 
 **on defaults configuration:**
 ```
@@ -67,6 +83,8 @@ Botnet is a concept which have the following principles:
 * botnet is a group of bots which are configured with a parameter `botnet: True`.
 * each bot that belongs to botnet should be considered as a bot working and running properly in a organization production environment.
 
+XXX comment: if y ou really want to explicitly say "botnet" . How about renaming this to "configuration" since it is a configuration setup (a complete configuration) which actually gets executed. Also... I prefer that we can give names to configurations/botnets.
+
 **Note:** IntelMQ system provides a mechanism to execute just in one command (e.g start/stop/restart/reload/status) actions to all bots which belong to botnet (independently of the `run_mode` parameter). Please check additional information related to this process on each botnet action.
 
 **on runtime configuration:**
@@ -78,6 +96,10 @@ Botnet is a concept which have the following principles:
         }
     }
 ```
+
+XXX comment: this is not logical why it is in the parser runtime.conf. did you mean "is_in_botnet"? But if that's the intention, I would rather say ``"botnet": <name of botnet>``.
+
+
 
 ## Onboot
 
@@ -104,11 +126,15 @@ An IntelMQ bot or botnet configured with onboot enabled will start automatically
 }
 ```
 
+XXX : not intuitively clear
+
 ## Run mode
 
 Each bot can be configured with a specific run mode such as:
 * **Stream:** bot will run and process messages indefinitely.
 * **Scheduled:** bot will start at the defined `schedule_time`, run one successfully time and then exit.
+
+XXX: see comment abouve. "continous" vs. "scheduled. Makse more sense for my feeling of english language.
 
 **on runtime configuration:**
 ```
@@ -125,15 +151,26 @@ Each bot can be configured with a specific run mode such as:
 ![architecture](https://s27.postimg.org/6snypqi9v/intelmqctl_2.jpg)
 
 
+XXX comment: graphics is too hard to read.
+
 ## Configurations (admin vs internal)
 
-The usual configurations files will now be copied every time `intelmqctl` successfully run to an hidden files located on `/var/run/intelmq`. The reason why `intelmqctl` will always keep a successfully running state version of admin configurations, as we call it, the internal configurations, is to prevent bad configurations changes on admin configuration files which can put the IntelMQ in a unstable mode. **However**, from a usual admin perspective, there is no need to be aware of this because are just internal files and an internal procedure used by intelmqctl to manage the system. In situations where intelmqctl detects some insconsitence in the current running state and the admin configurations, intelmqctl will require action from admin if intelmqctl is being run in interactive mode or if not, will be available the possibility to specify flags to automatically perform the actions without need interaction.
+The usual configurations files will now be copied every time `intelmqctl` successfully run to an hidden files located on `/var/run/intelmq`. The reason why `intelmqctl` will always keep a successfully running state version of admin configurations, as we call it, the internal configurations, is to prevent bad configurations changes on admin configuration files which can put the IntelMQ in a unstable mode.
+
+XXX comment: what happens when the two configs get out of sync for some reason? Will this be checked every time? How?
+
+**However**, from a usual admin perspective, there is no need to be aware of this because are just internal files and an internal procedure used by intelmqctl to manage the system. In situations where intelmqctl detects some insconsitence in the current running state and the admin configurations, intelmqctl will require action from admin if intelmqctl is being run in interactive mode or if not, will be available the possibility to specify flags to automatically perform the actions without need interaction.
+
+XXX comment: see above. How?
 
 In a nutshell, intelmqctl will always have a copy of the three main configuration files (runtime.conf, defaults.conf and pipeline.conf) and will use them to detect possible issues, such as, bots which are running but not being managed since they were removed manually from configuration files.
 
 
 ### Configurations Check Procedure
-intelmqctl will always perform the normal checks between internal runtime configuration and admin runtime configuration for all bots even if the `intelmqctl` command was executed just to only one bot. This checks will allow the sysadmin to be aware that something is wrong with the configuration even if sysadmin is executing other command with intelmqctl, therefore, a warning message will always show in the end of the command output.
+intelmqctl will always perform the normal checks between internal runtime configuration and admin runtime configuration for all bots even if the `intelmqctl` command was executed just to only one bot. 
+XXX comment: specify how?
+
+This checks will allow the sysadmin to be aware that something is wrong with the configuration even if sysadmin is executing other command with intelmqctl, therefore, a warning message will always show in the end of the command output.
 
 
 # intelmqctl
@@ -141,25 +178,49 @@ intelmqctl will always perform the normal checks between internal runtime config
 **Rules & Checks:**
 * the sysadmin in order to remove a bot from the configuration which is still running. MUST first to stop and then remove the configuration, not the opposite.
 * will always execute the bot background, not in foreground.
+
+XXX comment: how about test mode?
+
 * will always provide the best log message in order to give additional information to sysadmin about the actions performed. 
+
+XXX define log format in a separate document and link to it. Make this a HOWTO for new developers. What needs to be logged, when? Which log levels?
+
 * will always check if there is any issue with configurations (runtime, defaults, pipeline) regarding all bots even if just one action to one bot has been executed.
  * in case a bot is running but some configuration for that bot is missing in one of the files, the action will not be performed and sysadmin will receive a warning message
+ 
+ XXX where? on the logging system?
+ 
  * intelmqctl will automatically re-add the missing configuration and ask to syadmin to re-run the command again, now with the configurations cleaned.
+
+XXX sounds like too much magic here. I prefer a **good** error message for the sysadmin, telling him what to do. And then the system should NOT try to be too smart.
 
 
 **Syntax:**
+
+XXX : note this section could benefit from the way man pages are written.
+
 ```
 intelmqctl <action command> [<bot_id> | botnet ] <flags>
 ```
 
 **Flags:**
+XXX call it "generic Flags"
+
 
 * `--now`: this parameter will execute the bot automatically without taking into account `run_mode`.
+XXX comment: only once?
+
 * `--debug`: this parameter will execute the bot in debug mode which automatically run it in foreground in order to easily see the log lines in the console and the log level will also automatically set up to `DEBUG`.
+
+XXX : only once?
+
 * `--filter`: this parameter will provide to sysadmin a quick way to apply a filter to which bots the action will take place. The filtering can be done using the configuration parameters as the following example:
 ```
 intelmqctl start --filter "run_mode:scheduled, group:Collectors"
 ```
+
+XXX define all filters
+
 
 
 ## intelmqctl start action
@@ -176,15 +237,16 @@ intelmqctl start [<bot_id> | botnet ] <flags>
 * if Run mode: stream
   - if Process manager: PID
     - intelmqctl will check if there is a PID file
-    - if PID file exists, do nothing
+    - if PID file exists, do nothing XXX : and print error message
     - if PID file does not exist, execute start action on bot and write PID file
   - if Process manager: systemd
     - execute `systemctl start <module@bot_id>`
 * if Run mode: scheduled
   - if Process manager: PID or systemd
     - intelmqctl will check if crontab configuration line for the bot is already on crontab:
-     - if crontab configuration line exists, do nothing. In the end, write a log message "bot is already running"
+     - if crontab configuration line exists, do nothing. In the end, write a log message "bot is already running" XXX : is "scheduled" . Running is soemthing else!
      - if crontab configuration line does not exists, add configuration line on crontab such as `<schedule_time> <intelmq bot module> <bot_id> # <bot_id>`. In the end, write a log message "bot is schedule and will run at this time: `* * * * * `"
+       XXX Aren't we trying to be too smart here? Lt's discuss...
 
 
 ## intelmqctl stop action
@@ -201,7 +263,7 @@ intelmqct stop [<bot_id> | botnet ] <flags>
 * if Run mode: stream
   - if Process manager: PID
     - intelmqctl will check if there is a PID file
-    - if PID file exists, execute stop action on the bot and remove PID file
+    - if PID file exists, execute stop action on the bot and remove PID file. XXX print success of stopping the bot (yes, no). Print warning if it can not be stopped for some reason. XXX2: should we kill -9 ?
     - if PID file does not exist, do nothing
   - if Process manager: systemd
     - execute `systemctl stop <module@bot_id>`
@@ -242,6 +304,8 @@ intelmqctl reload [<bot_id> | botnet ] <flags>
   - raise message "`<bot_id>` is configured with a new `run_mode` therefore cannot be reload and it requires to be restarted in order to reload the new configuration. Do you want to restart the bot to apply the new `run_mode`? [Y/n]"
     - "[Y] `intelmqctl` will automatically execute restart action on the bot and the bot will start with the new configuration" \
     - "[N] `intelmqctl` will not perform any action, therefore bot will keep running in the current run state.
+    XXX how aobut if this gets called from the manager? We can not enter keyboard strockes there!
+    
 * else:
   * Run mode: stream
     - Process manager: PID
@@ -253,12 +317,13 @@ intelmqctl reload [<bot_id> | botnet ] <flags>
   * Run mode: scheduled
     - Process manager: PID or systemd
       - intelmqctl will check if crontab configuration line for the bot is still on crontab:
-        - if crontab configuration line exists, replate it and log a message explaining the update action.
+        - if crontab configuration line exists, replace it and log a message explaining the update action. XXX: here some nice errors can happen.
         - if crontab configuration line does not exists, add it and log a message explaining the update action.
       **Note**: if a scheduled bot is running the reload action will be ignored until the next bot execution.
 
 **Please note** the above explanation is exemplifying an interactive mode of intelmqctl, however, there will be available additional parameters to automatically answer the questions which will allow to execute this command by scripts or other tools.
 
+XXX define them :)
 
 ## intelmqctl configtest action
 
@@ -293,8 +358,8 @@ intelctl status [<bot_id> | botnet ] <flags>
 * Run mode: scheduled
   - Process manager: PID or systemd
     - intelmqctl will check if bot is configured on crontab
-      - if configured on crontab, log message saying the current status is "running"
-      - if not configured on crontab, log message saying the current status is "not running"
+      - if configured on crontab, log message saying the current status is "running" XXX: call it "scheduled". Running is smthg else.
+      - if not configured on crontab, log message saying the current status is "not running" XXX "not scheduled"
 
 **Ouput Proposal Example 1:**
 
@@ -311,6 +376,10 @@ Also intelmqctl should print the last 10 log lines from the log of this bot.
 | my-bot-2  | scheduled   | 1 * * * *                      | false        | running (unstable) | no              | invalid      |
 
 Also intelmqctl should print the last 10 log lines from the log of this bot.
+
+
+XXX think about an output format which is easy to parse for other systems.
+Human readable tables are not.
 
 
 ## intelmqctl enable action
