@@ -1,15 +1,11 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
+import html
+import html.parser
 import sys
-try:
-    from HTMLParser import HTMLParser
-except ImportError:
-    from html.parser import HTMLParser
 
 from intelmq.lib import utils
-from intelmq.lib.bot import Bot
+from intelmq.lib.bot import ParserBot
 from intelmq.lib.harmonization import ClassificationType
-from intelmq.lib.message import Event
 
 TAXONOMY = {
     "brute force": "brute-force",
@@ -20,60 +16,56 @@ TAXONOMY = {
 }
 
 
-class AutoshunParserBot(Bot):
+class AutoshunParserBot(ParserBot):
 
-    def process(self):
-        report = self.receive_message()
+    def parse(self, report):
+        if sys.version_info[:2] == (3, 4):
+            # See https://docs.python.org/3/whatsnew/3.4.html#html
+            # https://docs.python.org/3/whatsnew/3.5.html#changes-in-the-python-api
+            # raises DeprecationWarning otherwise on 3.4, True by default in 3.5
+            self.parser = html.parser.HTMLParser(convert_charrefs=True)
+        else:
+            self.parser = html.parser.HTMLParser()
 
-        if report is None or not report.contains("raw"):
-            self.acknowledge_message()
+        raw_report = utils.base64_decode(report.get("raw"))
+        splitted = raw_report.split("</tr>")
+        self.tempdata = ['</tr>'.join(splitted[:2])]
+        # TODO: save ending line
+        for line in splitted[2:]:
+            yield line.strip()
+
+    def parse_line(self, line, report):
+        event = self.new_event(report)
+
+        info = line.split("<td>")
+        if len(line) <= 0 or len(info) < 3:
             return
 
-        raw_report = utils.base64_decode(report.value("raw"))
-        raw_report_splitted = raw_report.split("</tr>")[2:]
+        ip = info[1].split('</td>')[0].strip()
+        last_seen = info[2].split('</td>')[0].strip() + '-05:00'
+        if sys.version_info < (3, 4):
+            description = self.parser.unescape(info[3].split('</td>')[0].strip())
+        else:
+            description = html.unescape(info[3].split('</td>')[0].strip())
 
-        parser = HTMLParser()
-
-        for row in raw_report_splitted:
-            event = Event(report)
-
-            row = row.strip()
-
-            if len(row) <= 0:
-                continue
-
-            info = row.split("<td>")
-            if len(info) < 3:
-                continue
-
-            ip = info[1].split('</td>')[0].strip()
-            last_seen = info[2].split('</td>')[0].strip() + '-05:00'
-            description = parser.unescape(info[3].split('</td>')[0].strip())
-
-            for key in ClassificationType.allowed_values:
+        for key in ClassificationType.allowed_values:
+            if description.lower().find(key.lower()) > -1:
+                event.add("classification.type", key)
+                break
+        else:
+            for key, value in TAXONOMY.items():
                 if description.lower().find(key.lower()) > -1:
-                    event.add("classification.type",
-                              key, sanitize=True)
+                    event.add("classification.type", value)
                     break
-            else:
-                for key, value in TAXONOMY.items():
-                    if description.lower().find(key.lower()) > -1:
-                        event.add("classification.type",
-                                  value, sanitize=True)
-                        break
 
-            if not event.contains("classification.type"):
-                event.add("classification.type", u'unknown')
+        if "classification.type" not in event:
+            event.add("classification.type", 'unknown')
 
-            event.add("time.source", last_seen, sanitize=True)
-            event.add("source.ip", ip, sanitize=True)
-            event.add("event_description.text", description, sanitize=True)
-            event.add("raw", row, sanitize=True)
-
-            self.send_message(event)
-        self.acknowledge_message()
+        event.add("time.source", last_seen)
+        event.add("source.ip", ip)
+        event.add("event_description.text", description)
+        event.add("raw", line + "</tr>")
+        yield event
 
 
-if __name__ == "__main__":
-    bot = AutoshunParserBot(sys.argv[1])
-    bot.start()
+BOT = AutoshunParserBot

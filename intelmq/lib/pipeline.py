@@ -1,18 +1,13 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, unicode_literals
-
 import time
 
 import redis
-try:
-    import zmq
-except ImportError:
-    zmq = None
 
 import intelmq.lib.exceptions as exceptions
 import intelmq.lib.pipeline
 import intelmq.lib.utils as utils
-from intelmq import VAR_RUN_PATH
+
+__all__ = ['Pipeline', 'PipelineFactory', 'Redis', 'Pythonlist']
 
 
 class PipelineFactory(object):
@@ -45,8 +40,11 @@ class Pipeline(object):
 
     def set_queues(self, queues, queues_type):
         if queues_type == "source":
-            self.source_queue = str(queues)
-            self.internal_queue = str(queues) + "-internal"
+            self.source_queue = queues
+            if queues is not None:
+                self.internal_queue = queues + "-internal"
+            else:
+                self.internal_queue = None
 
         elif queues_type == "destination":
             if queues and type(queues) is not list:
@@ -68,19 +66,32 @@ class Redis(Pipeline):
                             "{}_pipeline_port".format(queues_type), "6379")
         self.db = getattr(self.parameters,
                           "{}_pipeline_db".format(queues_type), 2)
+        self.password = getattr(self.parameters,
+                                "{}_pipeline_password".format(queues_type),
+                                None)
+        #  socket_timeout is None by default, which means no timeout
         self.socket_timeout = getattr(self.parameters,
                                       "{}_pipeline_socket_timeout".format(
                                           queues_type),
-                                      50000)
+                                      None)
         self.load_balance = getattr(self.parameters, "load_balance", False)
         self.load_balance_iterator = 0
 
     def connect(self):
-        self.pipe = redis.Redis(host=self.host,
-                                port=int(self.port),
-                                db=self.db,
-                                socket_timeout=self.socket_timeout
-                                )
+        if self.host.startswith("/"):
+            kwargs = {"unix_socket_path": self.host}
+
+        elif self.host.startswith("unix://"):
+            kwargs = {"unix_socket_path": self.host.replace("unix://", "")}
+
+        else:
+            kwargs = {
+                "host": self.host,
+                "port": int(self.port),
+                "socket_timeout": self.socket_timeout,
+            }
+
+        self.pipe = redis.Redis(db=self.db, password=self.password, **kwargs)
 
     def disconnect(self):
         pass
@@ -98,6 +109,11 @@ class Redis(Pipeline):
             try:
                 self.pipe.lpush(destination_queue, message)
             except Exception as exc:
+                if 'Cannot assign requested address' in exc.args[0] or\
+                   "OOM command not allowed when used memory > 'maxmemory'." in exc.args[0]:
+                    raise MemoryError(exc.args[0])
+                elif 'Redis is configured to save RDB snapshots, but is currently not able to persist on disk' in exc.args[0]:
+                    raise IOError(28, 'No space left on device. Redis can\'t save its snapshots.')
                 raise exceptions.PipelineError(exc)
 
             self.load_balance_iterator += 1
@@ -109,14 +125,22 @@ class Redis(Pipeline):
                 try:
                     self.pipe.lpush(destination_queue, message)
                 except Exception as exc:
+                    if 'Cannot assign requested address' in exc.args[0] or\
+                       "OOM command not allowed when used memory > 'maxmemory'." in exc.args[0]:
+                        raise MemoryError(exc.args[0])
+                    elif 'Redis is configured to save RDB snapshots, but is currently not able to persist on disk' in exc.args[0]:
+                        raise IOError(28, 'No space left on device. Redis can\'t save its snapshots.')
                     raise exceptions.PipelineError(exc)
 
     def receive(self):
+        if self.source_queue is None:
+            raise exceptions.ConfigurationError('pipeline', 'No source queue given.')
         try:
-            if self.pipe.llen(self.internal_queue) > 0:
-                return utils.decode(self.pipe.lindex(self.internal_queue, -1))
-            return utils.decode(self.pipe.brpoplpush(self.source_queue,
-                                                     self.internal_queue, 0))
+            retval = self.pipe.lindex(self.internal_queue, -1)  # returns None if no value
+            if not retval:
+                retval = self.pipe.brpoplpush(self.source_queue,
+                                              self.internal_queue, 0)
+            return utils.decode(retval)
         except Exception as exc:
             raise exceptions.PipelineError(exc)
 
@@ -126,8 +150,8 @@ class Redis(Pipeline):
         except Exception as e:
             raise exceptions.PipelineError(e)
 
-    def count_queued_messages(self, queues):
-        queue_dict = dict()
+    def count_queued_messages(self, *queues):
+        queue_dict = {}
         for queue in queues:
             try:
                 queue_dict[queue] = self.pipe.llen(queue)
@@ -208,13 +232,13 @@ class Pythonlist(Pipeline):
         """Removes a message from the internal queue and returns it"""
         return self.state.get(self.internal_queue, [None]).pop(0)
 
-    def count_queued_messages(self, queues):
+    def count_queued_messages(self, *queues):
         """Returns the amount of queued messages
            over all given queue names.
            But only without a real message broker behind.
            As this is only for tests"""
 
-        qdict = dict()
+        qdict = {}
         for queue in queues:
             qdict[queue] = len(self.state.get(queue, []))
         return qdict
@@ -222,64 +246,3 @@ class Pythonlist(Pipeline):
     def clear_queue(self, queue):
         """ Empties given queue. """
         self.state[queue] = []
-
-
-class Zeromq(Pipeline):
-
-    def __init__(self, host="127.0.0.1", communication="ipc"):
-
-        # ZeroMQ Context
-        if zmq is None:
-            raise exceptions.IntelMQException('Import of package zmq failed.')
-        self.context = zmq.Context()
-        self.host = host
-        self.communication = communication
-
-    def source_queues(self, source_queue):
-        # translate queues to port for tcp connecion
-        # queues_translation = dict()
-
-        self.source_sock = self.context.socket(zmq.PULL)
-        self.source_sock.bind("%s://%s%s.socket" % (self.communication,
-                                                    VAR_RUN_PATH,
-                                                    source_queue))
-
-    def destination_queues(self, destination_queues, load_balance=False):
-        # TODO: rename function
-        # translate queues to port for tcp connecion
-        # queues_translation = dict()
-        if not destination_queues:
-            return
-
-        if destination_queues and type(destination_queues) is not list:
-            destination_queues = destination_queues.split()
-
-        self.dest_sock = []
-        for destination_queue in destination_queues:
-            sock = self.context.socket(zmq.PUSH)
-            sock.connect("%s://%s%s.socket" % (self.communication,
-                                               VAR_RUN_PATH,
-                                               destination_queue))
-            self.dest_sock.append(sock)
-
-    def disconnect(self):
-        raise NotImplementedError
-
-    def sleep(self, interval):
-        time.sleep(interval)
-
-    def send(self, message):
-        for sock in self.dest_sock:
-            sock.send(message)  # TODO: send_string for unicode
-
-    def receive(self):
-        return self.source_sock.recv()
-
-    def acknowledge(self):
-        raise NotImplementedError
-
-    def count_queued_messages(self, queues):
-        raise NotImplementedError
-
-    def clear_queue(self, queue):
-        raise NotImplementedError

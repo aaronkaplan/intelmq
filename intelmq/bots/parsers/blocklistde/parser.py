@@ -1,15 +1,8 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 import posixpath
-import sys
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
-from intelmq.lib import utils
-from intelmq.lib.bot import Bot
-from intelmq.lib.message import Event
+from intelmq.lib.bot import ParserBot
 
 MAPPING = {
     "all.txt": {
@@ -74,38 +67,22 @@ MAPPING = {
 }
 
 
-class BlockListDEParserBot(Bot):
+class BlockListDEParserBot(ParserBot):
 
-    def process(self):
-        report = self.receive_message()
-
-        if report is None or not report.contains("raw"):
-            self.acknowledge_message()
-            return
-
-        raw_report = utils.base64_decode(report.value("raw"))
-        raw_report = raw_report.strip()
-
-        url = report.value('feed.url')
-        path = urlparse(url).path
+    def parse_line(self, line, report):
+        path = urlparse(report['feed.url']).path
         filename = posixpath.basename(path)
 
-        for row in raw_report.split('\n'):
-            event = Event(report)
+        event = self.new_event(report)
+        event.add('source.ip', line)
+        if filename in MAPPING:
+            for key, value in MAPPING[filename].items():
+                event.add(key, value)
+        else:
+            event.add('classification.type', 'blacklist')
 
-            event.add('source.ip', row.strip(), sanitize=True)
-            if filename in MAPPING:
-                for key, value in MAPPING[filename].items():
-                    event.add(key, value, sanitize=True)
-            else:
-                event.add('classification.type', 'blacklist', sanitize=True)
-
-            event.add("raw", row, sanitize=True)
-
-            self.send_message(event)
-        self.acknowledge_message()
+        event.add("raw", line)
+        yield event
 
 
-if __name__ == "__main__":
-    bot = BlockListDEParserBot(sys.argv[1])
-    bot.start()
+BOT = BlockListDEParserBot

@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 
 import unittest
 
 import intelmq.lib.test as test
-from intelmq.lib.cache import Cache
 from intelmq.bots.experts.reverse_dns.expert import ReverseDnsExpertBot
 
 EXAMPLE_INPUT = {"__type": "Event",
@@ -30,17 +28,27 @@ EXAMPLE_OUTPUT6 = {"__type": "Event",
                    "source.reverse_dns": "iana.org",
                    "time.observation": "2015-01-01T00:00:00+00:00",
                    }
+INVALID_PTR_INP = {"__type": "Event",
+                   "source.ip": "31.210.115.39",  # PTR is .
+                   "time.observation": "2015-01-01T00:00:00+00:00",
+                   }
+INVALID_PTR_OUT = {"__type": "Event",
+                   "source.ip": "31.210.115.39",
+                   "time.observation": "2015-01-01T00:00:00+00:00",
+                   }
 
 
+@test.skip_redis()
+@test.skip_internet()
 class TestReverseDnsExpertBot(test.BotTestCase, unittest.TestCase):
     """
     A TestCase for AbusixExpertBot.
     """
 
     @classmethod
-    def set_bot(self):
-        self.bot_reference = ReverseDnsExpertBot
-        self.default_input_message = {'__type': 'Report'}
+    def set_bot(cls):
+        cls.bot_reference = ReverseDnsExpertBot
+        cls.use_cache = True
 
     def test_ipv4_lookup(self):
         self.input_message = EXAMPLE_INPUT
@@ -52,14 +60,11 @@ class TestReverseDnsExpertBot(test.BotTestCase, unittest.TestCase):
         self.run_bot()
         self.assertMessageEqual(0, EXAMPLE_OUTPUT6)
 
-    @classmethod
-    def tearDownClass(cls):
-        cache = Cache(test.BOT_CONFIG['redis_cache_host'],
-                      test.BOT_CONFIG['redis_cache_port'],
-                      test.BOT_CONFIG['redis_cache_db'],
-                      test.BOT_CONFIG['redis_cache_ttl'],
-                      )
-        cache.flush()
+    def test_invalid_ptr(self):
+        self.input_message = INVALID_PTR_INP
+        self.run_bot()
+        self.assertMessageEqual(0, INVALID_PTR_OUT)
 
-if __name__ == '__main__':
+
+if __name__ == '__main__':  # pragma: no cover
     unittest.main()

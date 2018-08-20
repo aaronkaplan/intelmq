@@ -1,56 +1,67 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Aug 25 10:11:06 2015
-
-@author: sebastian
 """
-from __future__ import print_function, unicode_literals
-
 import json
 import textwrap
 
+import pkg_resources
+
 import intelmq.lib.harmonization
-from intelmq import HARMONIZATION_CONF_FILE
 
 
-print("""
+HEADER = """
 Harmonization field names
 =========================
 
 |Section|Name|Type|Description|
-|:------|:---|:---|:----------|""")
-
-
-with open(HARMONIZATION_CONF_FILE) as fhandle:
-    HARM = json.load(fhandle)['event']
-
-for key, value in sorted(HARM.items()):
-    section = ' '.join([sec.title() for sec in key.split('.')[:-1]])
-    print('|{}|{}|{}|{}|'.format(section, key, value['type'],
-                                 value['description']))
-
-print("""
+|:------|:---|:---|:----------|
+"""
+HEADER_1 = """
 
 Harmonization types
 -------------------
 
-""")
-
-for value in sorted(dir(intelmq.lib.harmonization)):
-    if value == 'GenericType' or value.startswith('__'):
-        continue
-    obj = getattr(intelmq.lib.harmonization, value)
-    try:
-        if issubclass(obj, intelmq.lib.harmonization.GenericType):
-            doc = getattr(obj, '__doc__', '')
-            if doc is None:
-                doc = ''
-            else:
-                doc = textwrap.dedent(doc)
-            print("""### {}
+"""
+TYPE_SECTION = """### {}
 {}
 
-""".format(value, doc))
-    except TypeError:
-        pass
+"""
+
+
+def main():
+    output = HEADER
+
+    HARM_CONF = pkg_resources.resource_filename('intelmq', 'etc/harmonization.conf')
+    with open(HARM_CONF) as fhandle:
+        HARM = json.load(fhandle)['event']
+
+    for key, value in sorted(HARM.items()):
+        section = ' '.join([sec.title() for sec in key.split('.')[:-1]])
+        output += '|{}|{}|[{}](#{})|{}|\n'.format(' ' if not section else section,  # needed for GitHub
+                                                  key, value['type'],
+                                                  value['type'].lower(),
+                                                  value['description'])
+
+    output += HEADER_1
+
+    for value in sorted(dir(intelmq.lib.harmonization)):
+        if value == 'GenericType' or value.startswith('__'):
+            continue
+        obj = getattr(intelmq.lib.harmonization, value)
+        try:
+            if issubclass(obj, intelmq.lib.harmonization.GenericType):
+                doc = getattr(obj, '__doc__', '')
+                if doc is None:
+                    doc = ''
+                else:
+                    doc = textwrap.dedent(doc)
+                output += TYPE_SECTION.format(value, doc)
+        except TypeError:
+            pass
+
+    return output
+
+
+if __name__ == '__main__':  # pragma: no cover
+    print(main())

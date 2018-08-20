@@ -1,84 +1,102 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from __future__ import print_function
+import json
 import os
 import sys
 
 from setuptools import find_packages, setup
 
+REQUIRES = [
+    'dnspython>=1.11.1',
+    'psutil>=1.2.1',
+    'python-dateutil>=2.5',
+    'python-termstyle>=0.1.10',
+    'pytz>=2012c',
+    'redis>=2.10',
+    'requests>=2.2.0',
+]
+if sys.version_info < (3, 5):
+    REQUIRES.append('typing')
 
-if sys.version[0] == '2':
-    input = raw_input
 
-if os.path.isdir("/opt/intelmq"):
-    print()
-    print("IntelMQ seems to be already installed due the existence of "
-          "/opt/intelmq directory. If you continue the directory will be"
-          " overwritten.")
-    answer = input("Do you want to proceed? [y/N] ")
-    if answer.lower().strip() != "y":
-        sys.exit(-1)
+DATA = [
+    ('/opt/intelmq/etc/',
+     ['intelmq/bots/BOTS',
+      ],
+     ),
+    ('/opt/intelmq/etc/examples',
+     ['intelmq/etc/defaults.conf',
+      'intelmq/etc/harmonization.conf',
+      'intelmq/etc/pipeline.conf',
+      'intelmq/etc/runtime.conf',
+      ],
+     ),
+    ('/opt/intelmq/var/log/',
+     [],
+     ),
+    ('/opt/intelmq/var/lib/bots/file-output/',
+     [],
+     ),
+]
 
-dirs = ['/opt/intelmq',
-        '/opt/intelmq/bin',
-        '/opt/intelmq/docs',
-        '/opt/intelmq/etc',
-        '/opt/intelmq/var',
-        '/opt/intelmq/var/lib',
-        '/opt/intelmq/var/lib/bots',
-        '/opt/intelmq/var/lib/bots/file-output',
-        '/opt/intelmq/var/lib/bots/modify',
-        '/opt/intelmq/var/log',
-        '/opt/intelmq/var/run',
-        ]
+exec(open(os.path.join(os.path.dirname(__file__),
+                       'intelmq/version.py')).read())  # defines __version__
+BOTS = []
+bots = json.load(open(os.path.join(os.path.dirname(__file__), 'intelmq/bots/BOTS')))
+for bot_type, bots in bots.items():
+    for bot_name, bot in bots.items():
+        module = bot['module']
+        BOTS.append('{0} = {0}:BOT.run'.format(module))
 
-for dir in dirs:
-    if not os.path.exists(dir):
-        os.makedirs(dir)
-
+with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as handle:
+    README = handle.read().replace('<docs/',
+                                   '<https://github.com/certtools/intelmq/blob/master/docs/')
 
 setup(
     name='intelmq',
-    version='1.0.0',
-    maintainer='Tomas Lima',
-    maintainer_email='synchroack@gmail.com',
-    install_requires=[
-       'ipaddress>=1.0.14',
-       'psutil>=2.1.1',
-       'python-dateutil>=2.4.2',
-       'pytz>=2015.4',
-       'redis>=2.10.3',
-       'requests>=2.7.0',
-       'six>=1.9.0',
-    ],
+    version=__version__,
+    maintainer='Sebastian Wagner',
+    maintainer_email='wagner@cert.at',
+    python_requires='>=3.3',
+    install_requires=REQUIRES,
+    test_suite='intelmq.tests',
     packages=find_packages(),
-    package_data={'intelmq': ['conf/*.conf', 'bots/experts/modify/*.conf']},
-    url='http://pypi.python.org/pypi/intelmq/',
+    include_package_data=True,
+    url='https://github.com/certtools/intelmq/',
     license='AGPLv3',
-    description="IntelMQ Tool",
-    long_description='IntelMQ is a solution for CERTs to process data feeds, '
-                     'pastebins, tweets throught a message queue.',
-    data_files=[
-                ('/opt/intelmq/etc/', [
-                                   'intelmq/bots/BOTS',
-                                   'intelmq/conf/defaults.conf',
-                                   'intelmq/conf/harmonization.conf',
-                                   'intelmq/conf/pipeline.conf',
-                                   'intelmq/conf/runtime.conf',
-                                   'intelmq/conf/startup.conf',
-                                   'intelmq/conf/system.conf',
-                                  ],
-                 ),
-                ('/opt/intelmq/bin/', [
-                                   'intelmq/bin/intelmqctl',
-                                   'intelmq/bin/intelmqdump',
-                                   'intelmq/bin/intelmq_gen_harm_docs.py',
-                                   'intelmq/bin/intelmq_psql_initdb.py',
-                                  ],
-                 ),
-                ('/opt/intelmq/var/lib/bots/modify/', [
-                                   'intelmq/bots/experts/modify/modify.conf',
-                                  ],
-                 ),
+    description='IntelMQ is a solution for IT security teams for collecting and '
+                'processing security feeds using a message queuing protocol.',
+    long_description=README,
+    classifiers=[
+        'Development Status :: 5 - Production/Stable',
+        'Environment :: Console',
+        'Intended Audience :: Information Technology',
+        'Intended Audience :: System Administrators',
+        'Intended Audience :: Telecommunications Industry',
+        'License :: OSI Approved :: GNU Affero General Public License v3',
+        'Operating System :: POSIX :: Linux',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: Implementation :: CPython',
+        'Topic :: Security',
+    ],
+    keywords='incident handling cert csirt',
+    data_files=DATA,
+    entry_points={
+        'console_scripts': [
+            'intelmqctl = intelmq.bin.intelmqctl:main',
+            'intelmqdump = intelmq.bin.intelmqdump:main',
+            'intelmq_psql_initdb = intelmq.bin.intelmq_psql_initdb:main',
+        ] + BOTS,
+    },
+    scripts=[
+        'intelmq/bots/experts/tor_nodes/update-tor-nodes',
+        'intelmq/bots/experts/maxmind_geoip/update-geoip-data',
+        'intelmq/bots/experts/asn_lookup/update-asn-data',
     ],
 )

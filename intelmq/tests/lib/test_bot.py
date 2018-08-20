@@ -1,114 +1,53 @@
 # -*- coding: utf-8 -*-
 """
-
+Tests the Bot class itself.
 """
-from __future__ import unicode_literals
 
-import io
-import json
-import logging
-import os
 import unittest
 
-import intelmq.lib.pipeline as pipeline
-import intelmq.lib.utils as utils
-import mock
-import pkg_resources
-from intelmq import PIPELINE_CONF_FILE, RUNTIME_CONF_FILE, SYSTEM_CONF_FILE
-from intelmq.lib.test import mocked_logger
+
+import intelmq.lib.test as test
+from intelmq.tests.lib import test_parser_bot
 
 
-def mocked_config(bot_id='', src_name='', dst_names=(),
-                  raise_on_connect=False):
-
-    def load_conf(conf_file):
-        if conf_file == PIPELINE_CONF_FILE:
-            return {bot_id: {"source-queue": src_name,
-                             "destination-queues": dst_names},
-                    }
-        elif conf_file == RUNTIME_CONF_FILE:
-            return {bot_id: {}}
-        elif conf_file == SYSTEM_CONF_FILE:
-            return {"logging_level": "DEBUG",
-                    "http_proxy":  None,
-                    "https_proxy": None,
-                    "broker": "pythonlist",
-                    "raise_on_connect": raise_on_connect,
-                    "rate_limit": 0,
-                    "retry_delay": 0,
-                    "error_retry_delay": 0,
-                    "error_max_retries": 0,
-                    "testing": True,
-                    }
-        elif conf_file.startswith('/opt/intelmq/etc/'):
-            confname = os.path.join('conf/', os.path.split(conf_file)[-1])
-            fname = pkg_resources.resource_filename('intelmq',
-                                                    confname)
-            with open(fname, 'rt') as fpconfig:
-                return json.load(fpconfig)
-        else:
-            with open(conf_file, 'r') as fpconfig:
-                return json.load(fpconfig)
-    return load_conf
-
-with mock.patch('intelmq.lib.utils.load_configuration', new=mocked_config()):
-    from intelmq.tests.bots import test_dummy_bot
-
-
-class TestBot(unittest.TestCase):
+class TestBot(test.BotTestCase, unittest.TestCase):
     """ Testing generic funtionalties of Bot base class. """
 
-    def prepare_bot(self, raise_on_connect=False):
-        self.log_stream = io.StringIO()
-        self.bot_id = 'test-bot'
+    @classmethod
+    def set_bot(cls):
+        cls.bot_reference = test_parser_bot.DummyParserBot
+        cls.allowed_error_count = 1
 
-        src_name = "{}-input".format(self.bot_id)
-        dst_name = "{}-output".format(self.bot_id)
-
-        self.mocked_config = mocked_config(self.bot_id,
-                                           src_name,
-                                           [dst_name],
-                                           raise_on_connect)
-        logger = logging.getLogger(self.bot_id)
-        logger.setLevel("DEBUG")
-        console_formatter = logging.Formatter(utils.LOG_FORMAT)
-        console_handler = logging.StreamHandler(self.log_stream)
-        console_handler.setFormatter(console_formatter)
-        logger.addHandler(console_handler)
-        self.mocked_log = mocked_logger(logger)
-
-        class Parameters(object):
-            source_queue = src_name
-            destination_queues = [dst_name]
-        parameters = Parameters()
-        pipe = pipeline.Pythonlist(parameters)
-        pipe.set_queues(parameters.source_queue, "source")
-        pipe.set_queues(parameters.destination_queues, "destination")
-
-        with mock.patch('intelmq.lib.utils.load_configuration',
-                        new=self.mocked_config):
-            with mock.patch('intelmq.lib.utils.log', self.mocked_log):
-                self.bot = self.bot_reference(self.bot_id)
-        self.pipe = pipe
-
-    def run_bot(self, raise_on_connect=False):
-        self.prepare_bot(raise_on_connect=raise_on_connect)
-        with mock.patch('intelmq.lib.utils.load_configuration',
-                        new=self.mocked_config):
-            with mock.patch('intelmq.lib.utils.log', self.mocked_log):
-                self.bot.start()
+    def test_bot_name(self):
+        pass
 
     def test_pipeline_raising(self):
-        self.bot_reference = test_dummy_bot.DummyParserBot
-        self.run_bot(raise_on_connect=True)
-        self.assertIn('ERROR - Pipeline failed', self.log_stream.getvalue())
+        self.sysconfig = {"raise_on_connect": True}
+        self.default_input_message = None
+        self.run_bot(error_on_pipeline=True)
+        self.assertLogMatches(levelname='ERROR', pattern='Pipeline failed')
 
     def test_pipeline_empty(self):
-        self.bot_reference = test_dummy_bot.DummyParserBot
+        self.default_input_message = None
         self.run_bot()
-        self.assertIn('ERROR - Bot has found a problem',
-                      self.log_stream.getvalue())
+        self.assertLogMatches(levelname='ERROR', pattern='Bot has found a problem')
+
+    def test_logging_level_other(self):
+        self.sysconfig = {"logging_level": "DEBUG"}
+        self.input_message = test_parser_bot.EXAMPLE_SHORT
+        self.run_bot()
+        self.assertLogMatches(levelname='DEBUG', pattern='test')
+
+    def test_logging_catch_warnings(self):
+        """
+        Test if the logger catches warnings issued by the warnings module.
+        """
+        self.input_message = test_parser_bot.EXAMPLE_SHORT
+        self.allowed_warning_count = 1
+        self.sysconfig = {'raise_warning': True}
+        self.run_bot()
+        self.assertLogMatches(levelname='WARNING', pattern='.*intelmq/tests/lib/test_parser_bot\.py\:[0-9]+\: UserWarning: This is a warning test.')
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     unittest.main()

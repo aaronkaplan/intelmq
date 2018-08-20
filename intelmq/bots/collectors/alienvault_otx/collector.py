@@ -1,30 +1,29 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-import sys
-from OTXv2 import OTXv2
 import json
 
-from intelmq.lib.bot import Bot
-from intelmq.lib.message import Report
-from intelmq.lib.harmonization import DateTime
+from intelmq.lib.bot import CollectorBot
+
+try:
+    from OTXv2 import OTXv2
+except ImportError:
+    OTXv2 = None
 
 
-class AlienVaultOTXCollectorBot(Bot):
+class AlienVaultOTXCollectorBot(CollectorBot):
+
+    def init(self):
+        if OTXv2 is None:
+            raise ValueError('Could not import OTXv2. Please install it.')
 
     def process(self):
         self.logger.info("Downloading report through API")
-        otx = OTXv2(self.parameters.api_key)
+        otx = OTXv2(self.parameters.api_key, proxy=self.parameters.https_proxy)
         pulses = otx.getall()
         self.logger.info("Report downloaded.")
 
-        report = Report()
-        report.add("raw", json.dumps(pulses), sanitize=True)
-        report.add("feed.name", self.parameters.feed, sanitize=True)
-        time_observation = DateTime().generate_datetime_now()
-        report.add('time.observation', time_observation, sanitize=True)
+        report = self.new_report()
+        report.add("raw", json.dumps(pulses))
         self.send_message(report)
 
 
-if __name__ == "__main__":
-    bot = AlienVaultOTXCollectorBot(sys.argv[1])
-    bot.start()
+BOT = AlienVaultOTXCollectorBot

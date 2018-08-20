@@ -1,32 +1,38 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-import sys
 
 from intelmq.lib.bot import Bot
 
-# FIXME: this dict should be on a sparated file
+# FIXME: this dict should be on a separated file
 
 TAXONOMY = {
-    "phishing": "Fraud",
-    "ddos": "Availability",
-    "spam": "Abusive Content",
-    "scanner": "Information Gathering",
-    "dropzone": "Information Content Security",
-    "malware": "Malicious Code",
-    "botnet drone": "Malicious Code",
-    "ransomware": "Malicious Code",
-    "malware configuration": "Malicious Code",
-    "c&c": "Malicious Code",
-    "exploit": "Intrusion Attempts",
-    "brute-force": "Intrusion Attempts",
-    "ids alert": "Intrusion Attempts",
-    "defacement": "Intrusions",
-    "compromised": "Intrusions",
-    "backdoor": "Intrusions",
-    "vulnerable service": "Vulnerable",
-    "blacklist": "Other",
-    "unknown": "Other",
-    "test": "Test",
+    # type       # taxonomy
+    "phishing": "fraud",
+    "proxy": "Other",
+    "ddos": "availability",
+    "spam": "abusive content",
+    "scanner": "information gathering",
+    "dropzone": "information content security",
+    "malware": "malicious code",
+    "botnet drone": "malicious code",
+    "ransomware": "malicious code",
+    "dga domain": "malicious code",
+    "malware configuration": "malicious code",
+    "c&c": "malicious code",
+    "exploit": "intrusion attempts",
+    "brute-force": "intrusion attempts",
+    "ids alert": "intrusion attempts",
+    "defacement": "intrusions",
+    "compromised": "intrusions",
+    "backdoor": "intrusions",
+    "vulnerable service": "vulnerable",
+    "blacklist": "other",
+    "unknown": "other",
+    "test": "test",
+    "other": "other",
+    "tor": "other",
+    "leak": "information content security",
+    'unauthorized-login': 'intrusions',
+    'unauthorized-command': 'intrusions',
 }
 
 
@@ -35,20 +41,22 @@ class TaxonomyExpertBot(Bot):
     def process(self):
         event = self.receive_message()
 
-        if event is None:
-            self.acknowledge_message()
-            return
-
-        if (not event.contains("classification.taxonomy") and
-                event.contains("classification.type")):
-            event_type = event.value("classification.type")
-            taxonomy = TAXONOMY[event_type]
-            event.add("classification.taxonomy", taxonomy, sanitize=True)
+        if "classification.taxonomy" not in event and "classification.type" in event:
+            # set the taxonomy based on the mapping above
+            event_type = event.get("classification.type")
+            taxonomy = TAXONOMY.get(event_type, 'other')
+            event.add("classification.taxonomy", taxonomy)
+        elif "classification.taxonomy" not in event and "classification.type" not in event:
+            event.add("classification.taxonomy", 'other')
+            event.add("classification.type", 'unknown')
+        elif "classification.taxonomy" in event and "classification.type" not in event:
+            event.add("classification.type", 'unknown')
+        else:
+            # classification given, type given... don't change it
+            pass
 
         self.send_message(event)
         self.acknowledge_message()
 
 
-if __name__ == "__main__":
-    bot = TaxonomyExpertBot(sys.argv[1])
-    bot.start()
+BOT = TaxonomyExpertBot

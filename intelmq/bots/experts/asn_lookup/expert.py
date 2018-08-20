@@ -1,35 +1,31 @@
 # -*- coding: utf-8 -*-
 """
-TODO: IPv6
-TODO: Known bug: https://github.com/hadiasghari/pyasn/issues/14
 """
-from __future__ import unicode_literals
-import sys
-
-import pyasn
-import six
 from intelmq.lib.bot import Bot
-from intelmq.lib.harmonization import IPAddress
+
+try:
+    import pyasn
+except ImportError:
+    pyasn = None
 
 
 class ASNLookupExpertBot(Bot):
 
     def init(self):
+        if pyasn is None:
+            raise ValueError('Could not import pyasn. Please install it.')
+
         try:
             self.database = pyasn.pyasn(self.parameters.database)
         except IOError:
             self.logger.error("pyasn data file does not exist or could not be "
-                              "accessed in '%s'" % self.parameters.database)
+                              "accessed in %r.", self.parameters.database)
             self.logger.error("Read 'bots/experts/asn_lookup/README' and "
-                              "follow the procedure")
+                              "follow the procedure.")
             self.stop()
 
     def process(self):
         event = self.receive_message()
-
-        if event is None:
-            self.acknowledge_message()
-            return
 
         for key in ["source.", "destination."]:
 
@@ -37,29 +33,19 @@ class ASNLookupExpertBot(Bot):
             asn_key = key + "asn"
             bgp_key = key + "network"
 
-            if not event.contains(ip_key):
+            if ip_key not in event:
                 continue
 
-            ip = event.value(ip_key)
-
-            if IPAddress.version(ip) == 6:
-                # Currently not supported by pyasn, fix will come soon
-                continue
-
-            info = self.database.lookup(ip)
+            info = self.database.lookup(event.get(ip_key))
 
             if info:
                 if info[0]:
-                    event.add(asn_key, six.text_type(info[0]), sanitize=True,
-                              force=True)
+                    event.add(asn_key, str(info[0]), overwrite=True)
                 if info[1]:
-                    event.add(bgp_key, six.text_type(info[1]), sanitize=True,
-                              force=True)
+                    event.add(bgp_key, str(info[1]), overwrite=True)
 
         self.send_message(event)
         self.acknowledge_message()
 
 
-if __name__ == "__main__":
-    bot = ASNLookupExpertBot(sys.argv[1])
-    bot.start()
+BOT = ASNLookupExpertBot

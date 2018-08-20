@@ -1,30 +1,58 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-import sys
+"""
+pymongo library automatically tries to reconnect if connection has been lost
+"""
 
-import pymongo
 from intelmq.lib.bot import Bot
 
+try:
+    import pymongo
+except ImportError:
+    pymongo = None
 
-class MongoDBBot(Bot):
+
+class MongoDBOutputBot(Bot):
 
     def init(self):
-        client = pymongo.MongoClient(self.parameters.host,
-                                     int(self.parameters.port))
-        db = client[self.parameters.database]
-        self.collection = db[self.parameters.collection]
+        if pymongo is None:
+            self.logger.error('Could not import pymongo. Please install it.')
+            self.stop()
+
+        self.connect()
+
+    def connect(self):
+        self.logger.debug('Connecting to MongoDB server.')
+        try:
+            self.client = pymongo.MongoClient(self.parameters.host,
+                                              int(self.parameters.port))
+        except pymongo.errors.ConnectionFailure:
+            raise ValueError('Connection to MongoDB server failed.')
+        else:
+            db = self.client[self.parameters.database]
+            if hasattr(self.parameters, 'db_user') and hasattr(self.parameters, 'db_pass'):
+                self.logger.debug('Trying to authenticate to database %s.',
+                                  self.parameters.database)
+                try:
+                    db.authenticate(name=self.parameters.db_user,
+                                    password=self.parameters.db_pass)
+                except pymongo.errors.OperationFailure:
+                    raise ValueError('Authentication to database {} failed'.format(self.parameters.database))
+            self.collection = db[self.parameters.collection]
+            self.logger.info('Successfully connected to MongoDB server.')
 
     def process(self):
         event = self.receive_message()
 
-        if event is None:
+        try:
+            self.collection.insert(event.to_dict(hierarchical=self.parameters.hierarchical_output))
+        except pymongo.errors.AutoReconnect:
+            self.logger.error('Connection Lost. Connecting again.')
+            self.connect()
+        else:
             self.acknowledge_message()
-            return
 
-        self.collection.insert(event.to_dict())
-        self.acknowledge_message()
+    def shutdown(self):
+        self.client.close()
 
 
-if __name__ == "__main__":
-    bot = MongoDBBot(sys.argv[1])
-    bot.start()
+BOT = MongoDBOutputBot

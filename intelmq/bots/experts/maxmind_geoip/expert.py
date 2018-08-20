@@ -1,56 +1,62 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-import sys
+"""
+This product includes GeoLite2 data created by MaxMind, available from
+<a href="http://www.maxmind.com">http://www.maxmind.com</a>.
+"""
 
-import geoip2.database
 from intelmq.lib.bot import Bot
+
+try:
+    import geoip2.database
+except ImportError:
+    geoip2 = None
 
 
 class GeoIPExpertBot(Bot):
 
     def init(self):
+        if geoip2 is None:
+            self.logger.error('Could not import geoip2. Please install it.')
+            self.stop()
+
         try:
             self.database = geoip2.database.Reader(self.parameters.database)
         except IOError:
-            self.logger.error("GeoIP Database does not exist or could not be "
-                              "accessed in '%s'" % self.parameters.database)
+            self.logger.exception("GeoIP Database does not exist or could not "
+                                  "be accessed in %r.",
+                                  self.parameters.database)
             self.logger.error("Read 'bots/experts/geoip/README' and follow the"
-                              " procedure")
+                              " procedure.")
             self.stop()
 
     def process(self):
         event = self.receive_message()
 
-        if event is None:
-            self.acknowledge_message()
-            return
-
         for key in ["source.%s", "destination.%s"]:
             geo_key = key % "geolocation.%s"
 
-            if not event.contains(key % "ip"):
+            if key % "ip" not in event:
                 continue
 
-            ip = event.value(key % "ip")
+            ip = event.get(key % "ip")
 
             try:
                 info = self.database.city(ip)
 
                 if info.country.iso_code:
                     event.add(geo_key % "cc", info.country.iso_code,
-                              sanitize=True, force=True)
+                              overwrite=True)
 
                 if info.location.latitude:
                     event.add(geo_key % "latitude", info.location.latitude,
-                              sanitize=True, force=True)
+                              overwrite=True)
 
                 if info.location.longitude:
                     event.add(geo_key % "longitude", info.location.longitude,
-                              sanitize=True, force=True)
+                              overwrite=True)
 
                 if info.city.name:
-                    event.add(geo_key % "city", info.city.name,
-                              sanitize=True, force=True)
+                    event.add(geo_key % "city", info.city.name, overwrite=True)
 
             except geoip2.errors.AddressNotFoundError:
                 pass
@@ -59,6 +65,4 @@ class GeoIPExpertBot(Bot):
         self.acknowledge_message()
 
 
-if __name__ == "__main__":
-    bot = GeoIPExpertBot(sys.argv[1])
-    bot.start()
+BOT = GeoIPExpertBot

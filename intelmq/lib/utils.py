@@ -11,69 +11,73 @@ log
 reverse_readline
 parse_logline
 """
-from __future__ import unicode_literals
-
 import base64
+import dateutil.parser
 import json
 import logging
+import logging.handlers
 import os
 import re
-import six
+import sys
+import traceback
 
-from intelmq import DEFAULT_LOGGING_PATH
+from typing import Sequence, Optional, Union
 
+import intelmq
+import pytz
 
-__all__ = ['decode', 'encode', 'base64_encode', 'base64_decode',
-           'load_configuration', 'load_parameters', 'log', 'reverse_readline',
-           'parse_logline']
+__all__ = ['base64_decode', 'base64_encode', 'decode', 'encode',
+           'load_configuration', 'load_parameters', 'log', 'parse_logline',
+           'reverse_readline', 'error_message_from_exc', 'parse_relative'
+           ]
 
 # Used loglines format
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 LOG_FORMAT_STREAM = '%(name)s: %(message)s'
+LOG_FORMAT_SYSLOG = '%(name)s: %(levelname)s %(message)s'
 
 # Regex for parsing the above LOG_FORMAT
-LOG_REGEX = (r'^(?P<asctime>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+) -'
-             r' (?P<name>[-\w]+) - '
-             r'(?P<levelname>[A-Z]+) - '
+LOG_REGEX = (r'^(?P<date>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+) -'
+             r' (?P<bot_id>([-\w]+|py\.warnings)) - '
+             r'(?P<log_level>[A-Z]+) - '
              r'(?P<message>.+)$')
+SYSLOG_REGEX = (r'^(?P<date>\w{3} \d{2} \d{2}:\d{2}:\d{2}) (?P<hostname>[-\.\w]+) '
+                r'(?P<bot_id>([-\w]+|py\.warnings)): (?P<log_level>[A-Z]+) (?P<message>.+)$')
 
 
 class Parameters(object):
     pass
 
 
-def decode(text, encodings=("utf-8", ), force=False):
+def decode(text: Union[bytes, str], encodings: Sequence[str] = ("utf-8", ),
+           force: bool = False) -> str:
     """
     Decode given string to UTF-8 (default).
 
     Parameters:
-    -----------
-    text : bytes string
-        if unicode string is given, same object is returned
-    encodings : iterable of strings
-        list/tuple of encodings to use, default ('utf-8')
-    force : boolean
-        Ignore invalid characters, default: False
+        text: if unicode string is given, same object is returned
+        encodings: list/tuple of encodings to use
+        force: Ignore invalid characters
 
-    Returns
-    -------
-    text : unicode string
-        unicode string is always returned, even when encoding is ascii
-        (Python 3 compat)
+    Returns:
+        converted unicode string
+
+    Raises:
+        ValueError: if decoding failed
     """
-    if isinstance(text, six.text_type):
+    if isinstance(text, str):
         return text
 
     for encoding in encodings:
         try:
-            return six.text_type(text.decode(encoding))
+            return str(text.decode(encoding))
         except ValueError:
             pass
 
     if force:
         for encoding in encodings:
             try:
-                return six.text_type(text.decode(encoding, 'ignore'))
+                return str(text.decode(encoding, 'ignore'))
             except ValueError:
                 pass
 
@@ -81,20 +85,23 @@ def decode(text, encodings=("utf-8", ), force=False):
                      ".".format(encodings))
 
 
-def encode(text, encodings=("utf-8", ), force=False):
+def encode(text: Union[bytes, str], encodings: Sequence[str] = ("utf-8", ),
+           force: bool = False) -> str:
     """
     Encode given string from UTF-8 (default).
 
     Parameters:
-    -----------
-    text : unicode string
-        if bytes string is given, same object is returned
-    encodings : iterable of strings
-        list/tuple of encodings to use, default ('utf-8')
-    force : boolean
-        Ignore invalid characters, default: False
+        text: if bytes string is given, same object is returned
+        encodings: list/tuple of encodings to use
+        force: Ignore invalid characters
+
+    Returns:
+        converted bytes string
+
+    Raises:
+        ValueError: if encoding failed
     """
-    if isinstance(text, six.binary_type):
+    if isinstance(text, bytes):
         return text
 
     for encoding in encodings:
@@ -114,66 +121,64 @@ def encode(text, encodings=("utf-8", ), force=False):
                      ".".format(encodings))
 
 
-def base64_decode(value):
+def base64_decode(value: Union[bytes, str]) -> str:
     """
-    Parameters
-    ----------
-    value : string
-        base 64, will be encoded to bytes if not already.
+    Parameters:
+        value: base64 encoded string
 
-    Returns
-    -------
-    retval : unicode string
+    Returns:
+        retval: decoded string
+
+    Notes:
+        Possible bytes - unicode conversions problems are ignored.
     """
-    return decode(base64.b64decode(encode(value)))
+    return decode(base64.b64decode(encode(value, force=True)), force=True)
 
 
-def base64_encode(value):
+def base64_encode(value: Union[bytes, str]) -> str:
     """
-    Parameters
-    ----------
-    value : string
-        Will be encoded to bytes if not already of type bytes.
+    Parameters:
+        value: string to be encoded
 
-    Returns
-    -------
-    retval : unicode string
+    Returns:
+        retval: base64 representation of value
+
+    Notes:
+        Possible bytes - unicode conversions problems are ignored.
     """
-    return decode(base64.b64encode(encode(value)))
+    return decode(base64.b64encode(encode(value, force=True)), force=True)
 
 
-def load_configuration(configuration_filepath):
+def load_configuration(configuration_filepath: str) -> dict:
     """
     Load JSON configuration file.
 
     Parameters:
-    -----------
-    configuration_filepath : string
-        Path to JSON file to load
+        configuration_filepath: Path to JSON file to load.
 
     Returns:
-    --------
-    config : dict
-        Parsed configuration
+        config: Parsed configuration
+
+    Raises:
+        ValueError: if file not found
     """
-    with open(configuration_filepath, 'r') as fpconfig:
-        config = json.loads(fpconfig.read())
+    if os.path.exists(configuration_filepath):
+        with open(configuration_filepath, 'r') as fpconfig:
+            config = json.loads(fpconfig.read())
+    else:
+        raise ValueError('File not found: %r.' % configuration_filepath)
     return config
 
 
-def load_parameters(*configs):
+def load_parameters(*configs: dict) -> Parameters:
     """
     Load dictionaries into new Parameters() instance.
 
     Parameters:
-    -----------
-    *configs : dict
-        Arbitrary number of dictionaries to load.
+        *configs: Arbitrary number of dictionaries to load.
 
     Returns:
-    --------
-    parameters : Parameters
-        class instance with items of configs as attributes
+        parameters: class instance with items of configs as attributes
     """
     parameters = Parameters()
     for config in configs:
@@ -182,105 +187,203 @@ def load_parameters(*configs):
     return parameters
 
 
-def log(name, log_path=DEFAULT_LOGGING_PATH, log_level="DEBUG", stream=None):
+class FileHandler(logging.FileHandler):
+    def emit_print(self, record):
+        print(record.msg, record.args)
+
+    def handleError(self, record):
+        type, value, traceback = sys.exc_info()
+        if type is OSError and value.errno == 28:
+            self.emit = self.emit_print
+            raise
+
+
+class StreamHandler(logging.StreamHandler):
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            if record.levelno < logging.WARNING:  # debug, info
+                stream = sys.stdout
+            else:  # warning, error, critical
+                stream = sys.stderr
+            stream.write(msg)
+            stream.write(self.terminator)
+            self.flush()
+        except Exception:
+            self.handleError(record)
+
+
+def log(name: str, log_path: str = intelmq.DEFAULT_LOGGING_PATH, log_level: str = "DEBUG",
+        stream: Optional[object] = None, syslog: Union[bool, str, list, tuple] = None):
     """
     Returns a logger instance logging to file and sys.stderr or other stream.
+    The warnings module will log to the same handlers.
 
     Parameters:
-    -----------
-        name : string
-            filename for logfile or string preceding lines in stream
-        log_path : string
-            Path to log directory, defaults to DEFAULT_LOGGING_PATH
-        log_level : string
-            default is "DEBUG"
-        stream : object
-            By default (None), stderr will be used, stream objects can be
+        name: filename for logfile or string preceding lines in stream
+        log_path: Path to log directory, defaults to DEFAULT_LOGGING_PATH
+            If False, nothing is logged to files.
+        log_level: default is "DEBUG"
+        stream: By default (None), stderr will be used, stream objects can be
             given. If False, stream output is not used.
+        syslog:
+            If False (default), FileHandler will be used. Otherwise either a list/
+            tuple with address and UDP port are expected, e.g. `["localhost", 514]`
+            or a string with device name, e.g. `"/dev/log"`.
 
-    Returns
-    -------
-        logger : object
-            A `logging` instance.
+    Returns:
+        logger: An instance of logging.Logger
 
-    See also
-    --------
-        LOG_FORMAT : string
-            Default log format for file handler
-        LOG_FORMAT_STREAM : string
-            Default log format for stream handler
+    See also:
+        LOG_FORMAT: Default log format for file handler
+        LOG_FORMAT_STREAM: Default log format for stream handler
+        LOG_FORMAT_SYSLOG: Default log format for syslog
     """
+    logging.captureWarnings(True)
+    warnings_logger = logging.getLogger("py.warnings")
+    # set the name of the warnings logger to the bot neme, see #1184
+    warnings_logger.name = name
+
     logger = logging.getLogger(name)
     logger.setLevel(log_level)
 
-    handler = logging.FileHandler("%s/%s.log" % (log_path, name))
-    handler.setLevel(log_level)
+    if log_path and not syslog:
+        handler = FileHandler("%s/%s.log" % (log_path, name))
+        handler.setLevel(log_level)
+        handler.setFormatter(logging.Formatter(LOG_FORMAT))
+    elif syslog:
+        if type(syslog) is tuple or type(syslog) is list:
+            handler = logging.handlers.SysLogHandler(address=tuple(syslog))
+        else:
+            handler = logging.handlers.SysLogHandler(address=syslog)
+        handler.setLevel(log_level)
+        handler.setFormatter(logging.Formatter(LOG_FORMAT_SYSLOG))
 
-    formatter = logging.Formatter(LOG_FORMAT)
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    if log_path or syslog:
+        logger.addHandler(handler)
+        warnings_logger.addHandler(handler)
 
-    if stream:
+    if stream or stream is None:
         console_formatter = logging.Formatter(LOG_FORMAT_STREAM)
-        console_handler = logging.StreamHandler(stream)
+        if stream is None:
+            console_handler = StreamHandler()
+        else:
+            console_handler = logging.StreamHandler(stream)
         console_handler.setFormatter(console_formatter)
         logger.addHandler(console_handler)
+        warnings_logger.addHandler(console_handler)
         console_handler.setLevel(log_level)
 
     return logger
 
 
-def reverse_readline(filename, buf_size=8192):
-    """a generator that returns the lines of a file in reverse order
-    http://stackoverflow.com/a/23646049/2851664"""
-    with open(filename) as handle:
-        segment = None
-        offset = 0
-        handle.seek(0, os.SEEK_END)
-        total_size = remaining_size = handle.tell()
-        while remaining_size > 0:
-            offset = min(total_size, offset + buf_size)
-            handle.seek(-offset, os.SEEK_END)
-            buf = handle.read(min(remaining_size, buf_size))
-            remaining_size -= buf_size
-            lines = buf.split('\n')
-            # the first line of the buffer is probably not a complete line so
-            # we'll save it and append it to the last line of the next buffer
-            # we read
-            if segment is not None:
-                # if the previous chunk starts right from the beginning of line
-                # do not concact the segment to the last line of new chunk
-                # instead, yield the segment first
-                if buf[-1] is not '\n':
-                    lines[-1] += segment
-                else:
-                    yield segment
-            segment = lines[0]
-            for index in range(len(lines) - 1, 0, -1):
-                if len(lines[index]):
-                    yield lines[index]
-        yield segment
+def reverse_readline(filename: str, buf_size=100000) -> str:
+    """
+    See also:
+        https://github.com/certtools/intelmq/issues/393#issuecomment-154041996
+    """
+    with open(filename) as qfile:
+        qfile.seek(0, os.SEEK_END)
+        position = totalsize = qfile.tell()
+        line = ''
+        number = 0
+        if buf_size < position:
+            qfile.seek(totalsize - buf_size - 1)
+            char = qfile.read(1)
+            while char != '\n':
+                char = qfile.read(1)
+            number = totalsize - buf_size
+        while position >= number:
+            qfile.seek(position)
+            next_char = qfile.read(1)
+            if next_char == "\n":
+                yield line[::-1]
+                line = ''
+            else:
+                line += next_char
+            position -= 1
+        yield line[::-1]
 
 
-def parse_logline(logline):
+def parse_logline(logline: str, regex: str = LOG_REGEX) -> dict:
     """
     Parses the given logline string into its components.
 
     Parameters:
-    -----------
-    logline : string
+        logline: logline to be parsed
+        regex: The regular expression used to parse the line
 
     Returns:
-    --------
-    result : dict
-        dictionary with keys: ['message', 'name', 'levelname', 'asctime']
+        result: dictionary with keys: ['date', 'bot_id', 'log_level', 'message']
+
+    See also:
+        LOG_REGEX: Regular expression for default log format of file handler
+        SYSLOG_REGEX: Regular expression for log format of syslog
     """
 
-    match = re.match(LOG_REGEX, logline)
-    result = {}
-    fields = ("asctime", "name", "levelname", "message")
+    match = re.match(regex, logline)
+    fields = ("date", "bot_id", "log_level", "message")
 
-    if match:
-        result = dict(list(zip(fields, match.group(*fields))))
+    try:
+        value = dict(list(zip(fields, match.group(*fields))))
+        date = dateutil.parser.parse(value['date'])
+        try:
+            date = date.astimezone(pytz.utc)
+        except ValueError:  # astimezone() cannot be applied to a naive datetime
+            pass
+        value['date'] = date.isoformat()
+        if value['date'].endswith('+00:00'):
+            value['date'] = value['date'][:-6]
+        return value
+    except AttributeError:
+        return logline
 
-    return result
+
+def error_message_from_exc(exc: Exception) -> str:
+    """
+    >>> exc = IndexError('This is a test')
+    >>> error_message_from_exc(exc)
+    'This is a test'
+
+    Parameters:
+        exc
+
+    Returns:
+        result: The error message of exc
+    """
+    return traceback.format_exception_only(type(exc), exc)[-1].strip().replace(type(exc).__name__ + ': ', '')
+
+
+# number of minutes in time units
+TIMESPANS = {'hour': 60, 'day': 24 * 60, 'week': 7 * 24 * 60,
+             'month': 30 * 24 * 60, 'year': 365 * 24 * 60}
+
+
+def parse_relative(relative_time: str) -> int:
+    """
+    Parse relative time attributes and returns the corresponding minutes.
+
+    >>> parse_relative('4 hours')
+    240
+
+    Parameters:
+        relative_time: a string holding a relative time specification
+
+    Returns:
+        result: Minutes
+
+    Raises:
+        ValueError: If relative_time is not parseable
+
+    See also:
+        TIMESPANS: Defines the conversion of verbal timespans to minutes
+    """
+    try:
+        result = re.findall(r'^(\d+)\s+(\w+[^s])s?$', relative_time, re.UNICODE)
+    except ValueError as e:
+        raise ValueError("Could not apply regex to attribute \"%s\" with exception %s.",
+                         repr(relative_time), repr(e.args))
+    if len(result) == 1 and len(result[0]) == 2 and result[0][1] in TIMESPANS:
+        return int(result[0][0]) * TIMESPANS[result[0][1]]
+    else:
+        raise ValueError("Could not process result of regex for attribute " + repr(relative_time))

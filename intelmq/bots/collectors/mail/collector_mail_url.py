@@ -1,57 +1,115 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 import re
-import sys
+import io
+import imaplib
+import requests
 
-import imbox
-from intelmq.bots.collectors.url.lib import fetch_url
-from intelmq.lib.bot import Bot
-from intelmq.lib.harmonization import DateTime
-from intelmq.lib.message import Report
+try:
+    import imbox
+except ImportError:
+    imbox = None
+
+from intelmq.lib.bot import CollectorBot
+from intelmq.lib.splitreports import generate_reports
 
 
-class MailURLCollectorBot(Bot):
+class MailURLCollectorBot(CollectorBot):
 
-    def process(self):
+    def init(self):
+        if imbox is None:
+            self.logger.error('Could not import imbox. Please install it.')
+            self.stop()
+
+        # Build request
+        self.set_request_parameters()
+
+        self.chunk_size = getattr(self.parameters, 'chunk_size', None)
+        self.chunk_replicate_header = getattr(self.parameters,
+                                              'chunk_replicate_header', None)
+
+    def connect_mailbox(self):
         mailbox = imbox.Imbox(self.parameters.mail_host,
                               self.parameters.mail_user,
                               self.parameters.mail_password,
                               self.parameters.mail_ssl)
-        emails = mailbox.messages(folder=self.parameters.mail_folder, unread=True)
+        return mailbox
+
+    def process(self):
+        mailbox = self.connect_mailbox()
+        emails = mailbox.messages(folder=self.parameters.folder, unread=True)
 
         if emails:
             for uid, message in emails:
 
-                if (self.parameters.mail_subject_regex and
-                        not re.search(self.parameters.mail_subject_regex,
-                                      message.subject)):
+                if (self.parameters.subject_regex and
+                        not re.search(self.parameters.subject_regex,
+                                      re.sub(r"\r\n\s", " ", message.subject))):
                     continue
 
-                self.logger.info("Reading email report")
+                erroneous = False  # If errors occured this will be set to true.
 
                 for body in message.body['plain']:
-                    match = re.search(self.parameters.mail_url_regex, body)
+                    match = re.search(self.parameters.url_regex, str(body))
                     if match:
                         url = match.group()
+                        # strip leading and trailing spaces, newlines and
+                        # carriage returns
+                        url = url.strip()
 
-                        self.logger.info("Downloading report from %s" % url)
-                        raw_report = fetch_url(url, timeout=60.0,
-                                               chunk_size=16384)
-                        self.logger.info("Report downloaded.")
+                        self.logger.info("Downloading report from %r.", url)
+                        timeoutretries = 0
+                        resp = None
+                        while timeoutretries < self.http_timeout_max_tries and resp is None:
+                            try:
+                                resp = requests.get(url=url,
+                                                    auth=self.auth, proxies=self.proxy,
+                                                    headers=self.http_header,
+                                                    verify=self.http_verify_cert,
+                                                    cert=self.ssl_client_cert,
+                                                    timeout=self.http_timeout_sec)
 
-                        report = Report()
-                        report.add("raw", raw_report, sanitize=True)
-                        report.add("feed.name",
-                                   self.parameters.feed, sanitize=True)
-                        time_observation = DateTime().generate_datetime_now()
-                        report.add('time.observation', time_observation,
-                                   sanitize=True)
-                        self.send_message(report)
+                            except requests.exceptions.Timeout:
+                                timeoutretries += 1
+                                self.logger.warn("Timeout whilst downloading the report.")
 
-                mailbox.mark_seen(uid)
-                self.logger.info("Email report read")
+                        if resp is None and timeoutretries >= self.http_timeout_max_tries:
+                            self.logger.error("Request timed out %i times in a row. " %
+                                              timeoutretries)
+                            erroneous = True
+                            # The download timed out too often, leave the Loop.
+                            continue
+
+                        if resp.status_code // 100 != 2:
+                            raise ValueError('HTTP response status code was {}.'
+                                             ''.format(resp.status_code))
+                        if not resp.content:
+                            self.logger.warning('Got empty reponse from server.')
+                        else:
+                            self.logger.info("Report downloaded.")
+
+                            template = self.new_report()
+
+                            for report in generate_reports(template, io.BytesIO(resp.content),
+                                                           self.chunk_size,
+                                                           self.chunk_replicate_header):
+                                self.send_message(report)
+
+                        # Only mark read if message relevant to this instance,
+                        # so other instances watching this mailbox will still
+                        # check it.
+                        try:
+                            mailbox.mark_seen(uid)
+                        except imaplib.abort:
+                            # Disconnect, see https://github.com/certtools/intelmq/issues/852
+                            mailbox = self.connect_mailbox()
+                            mailbox.mark_seen(uid)
+
+                if not erroneous:
+                    self.logger.info("Email report read.")
+                else:
+                    self.logger.error("Email report read with errors, the report was not processed.")
+
+        mailbox.logout()
 
 
-if __name__ == "__main__":
-    bot = MailURLCollectorBot(sys.argv[1])
-    bot.start()
+BOT = MailURLCollectorBot

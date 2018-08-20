@@ -1,62 +1,47 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-import sys
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 from intelmq.lib import utils
-from intelmq.lib.bot import Bot
-from intelmq.lib.harmonization import IPAddress
-from intelmq.lib.message import Event
+from intelmq.lib.bot import ParserBot
 
 
-class VXVaultParserBot(Bot):
+class VXVaultParserBot(ParserBot):
 
-    def process(self):
-        report = self.receive_message()
+    def parse(self, report):
+        report_split = utils.base64_decode(report["raw"]).strip().splitlines()
+        self.tempdata = report_split[:3]
+        for line in report_split[4:]:
+            yield line.strip()
 
-        if not report:
-            self.acknowledge_message()
-            return
-        if not report.contains("raw"):
-            self.acknowledge_message()
+    def parse_line(self, row, report):
+        if not row.startswith('http'):
+            return []
 
-        raw_report = utils.base64_decode(report.value("raw"))
-        for row in raw_report.split('\n'):
+        url_object = urlparse(row)
 
-            row = row.strip()
+        if not url_object:
+            return []
 
-            if len(row) == 0 or not row.startswith('http'):
-                continue
+        url = url_object.geturl()
+        hostname = url_object.hostname
+        port = url_object.port
 
-            url_object = urlparse(row)
+        event = self.new_event(report)
 
-            if not url_object:
-                continue
+        if not event.add("source.ip", hostname, raise_failure=False):
+            event.add("source.fqdn", hostname)
 
-            url = url_object.geturl()
-            hostname = url_object.hostname
-            port = url_object.port
+        event.add('classification.type', 'malware')
+        event.add("source.url", url)
+        if port:
+            event.add("source.port", port)
+        event.add("raw", row)
+        event.add("time.source", self.tempdata[2])
 
-            event = Event(report)
+        yield event
 
-            if IPAddress.is_valid(hostname, sanitize=True):
-                event.add("source.ip", hostname, sanitize=True)
-            else:
-                event.add("source.fqdn", hostname, sanitize=True)
-
-            event.add('classification.type', u'malware')
-            event.add("source.url", url, sanitize=True)
-            if port:
-                event.add("source.port", port, sanitize=True)
-            event.add("raw", row, sanitize=True)
-
-            self.send_message(event)
-        self.acknowledge_message()
+    def recover_line(self, line):
+        return '\n'.join(self.tempdata + [line])
 
 
-if __name__ == "__main__":
-    bot = VXVaultParserBot(sys.argv[1])
-    bot.start()
+BOT = VXVaultParserBot

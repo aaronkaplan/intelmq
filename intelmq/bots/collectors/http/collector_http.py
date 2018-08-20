@@ -9,53 +9,45 @@ http_header: dictionary
 http_verify_cert: boolean
     default: True
 http_username, http_password: string
-http_proxy, http_ssl_proxy: string
-
+http_proxy, https_proxy: string
+http_timeout_sec: tuple of two floats or float
+http_timeout_max_tries: an integer depicting how often a connection attempt is retried
 """
-from __future__ import unicode_literals
+import io
+import zipfile
+
 import requests
-import sys
 
-from intelmq.lib.bot import Bot
-from intelmq.lib.harmonization import DateTime
-from intelmq.lib.message import Report
-
-# SNI Workaround for Python 2:
-# https://github.com/kennethreitz/requests/blob/master/requests/packages/urllib3/contrib/pyopenssl.py#L16
-try:
-    import urllib3.contrib.pyopenssl
-    urllib3.contrib.pyopenssl.inject_into_urllib3()
-except ImportError:
-    pass
+from intelmq.lib.bot import CollectorBot
 
 
-class HTTPCollectorBot(Bot):
+class HTTPCollectorBot(CollectorBot):
 
     def init(self):
-        self.http_header = getattr(self.parameters, 'http_header', {})
-        self.http_verify_cert = getattr(self.parameters, 'http_verify_cert', True)
-
-        if hasattr(self.parameters, 'http_username') and hasattr(self.parameters,
-                                                            'http_password'):
-            self.auth = (self.parameters.http_username, self.parameters.http_password)
-        else:
-            self.auth = None
-
-        http_proxy = getattr(self.parameters, 'http_proxy', None)
-        https_proxy = getattr(self.parameters, 'http_ssl_proxy', None)
-        if http_proxy and https_proxy:
-            self.proxy = {'http': http_proxy, 'https': https_proxy}
-        else:
-            self.proxy = None
-
-        self.http_header['User-agent'] = self.parameters.http_user_agent
+        self.set_request_parameters()
 
     def process(self):
-        self.logger.info("Downloading report from %s" % self.parameters.http_url)
+        self.logger.info("Downloading report from %s", self.parameters.http_url)
 
-        resp = requests.get(url=self.parameters.http_url, auth=self.auth,
-                            proxies=self.proxy, headers=self.http_header,
-                            verify=self.http_verify_cert)
+        timeoutretries = 0
+        resp = None
+
+        while timeoutretries < self.http_timeout_max_tries and resp is None:
+            try:
+                resp = requests.get(url=self.parameters.http_url, auth=self.auth,
+                                    proxies=self.proxy, headers=self.http_header,
+                                    verify=self.http_verify_cert,
+                                    cert=self.ssl_client_cert,
+                                    timeout=self.http_timeout_sec)
+
+            except requests.exceptions.Timeout:
+                timeoutretries += 1
+                self.logger.warn("Timeout whilst downloading the report.")
+
+        if resp is None and timeoutretries >= self.http_timeout_max_tries:
+            self.logger.error("Request timed out %i times in a row. " %
+                              timeoutretries)
+            return
 
         if resp.status_code // 100 != 2:
             raise ValueError('HTTP response status code was {}.'
@@ -63,15 +55,22 @@ class HTTPCollectorBot(Bot):
 
         self.logger.info("Report downloaded.")
 
-        report = Report()
-        report.add("raw", resp.text, sanitize=True)
-        report.add("feed.name", self.parameters.feed, sanitize=True)
-        report.add("feed.url", self.parameters.http_url, sanitize=True)
-        time_observation = DateTime().generate_datetime_now()
-        report.add('time.observation', time_observation, sanitize=True)
-        self.send_message(report)
+        raw_reports = []
+        try:
+            zfp = zipfile.ZipFile(io.BytesIO(resp.content), "r")
+        except zipfile.BadZipfile:
+            raw_reports.append(resp.text)
+        else:
+            self.logger.info('Downloaded zip file, extracting following files:'
+                             ' ' + ', '.join(zfp.namelist()))
+            for filename in zfp.namelist():
+                raw_reports.append(zfp.read(filename))
+
+        for raw_report in raw_reports:
+            report = self.new_report()
+            report.add("raw", raw_report)
+            report.add("feed.url", self.parameters.http_url)
+            self.send_message(report)
 
 
-if __name__ == "__main__":
-    bot = HTTPCollectorBot(sys.argv[1])
-    bot.start()
+BOT = HTTPCollectorBot

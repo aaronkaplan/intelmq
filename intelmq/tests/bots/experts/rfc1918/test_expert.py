@@ -2,7 +2,6 @@
 """
 Testing rfc 1918 expert bot.
 """
-from __future__ import unicode_literals
 
 import unittest
 
@@ -45,13 +44,12 @@ class TestRFC1918ExpertBot(test.BotTestCase, unittest.TestCase):
     """
 
     @classmethod
-    def set_bot(self):
-        self.bot_reference = RFC1918ExpertBot
-        self.sysconfig = {'fields': 'destination.ip,source.ip,source.fqdn,'
-                                    'destination.fqdn,source.url',
-                          'policy': 'del,drop,drop,del,drop',
-                          }
-        self.default_input_message = {'__type': 'Event'}
+    def set_bot(cls):
+        cls.bot_reference = RFC1918ExpertBot
+        cls.sysconfig = {'fields': 'destination.ip,source.ip,source.fqdn,'
+                                   'destination.fqdn,source.url',
+                         'policy': 'del,drop,drop,del,drop',
+                         }
 
     def test_del(self):
         self.input_message = INPUT1
@@ -79,5 +77,5 @@ class TestRFC1918ExpertBot(test.BotTestCase, unittest.TestCase):
         self.assertOutputQueueLen(0)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     unittest.main()

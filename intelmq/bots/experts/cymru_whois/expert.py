@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 import json
-import sys
 
 from intelmq.bots.experts.cymru_whois.lib import Cymru
 from intelmq.lib.bot import Bot
@@ -9,7 +7,7 @@ from intelmq.lib.cache import Cache
 from intelmq.lib.harmonization import IPAddress
 
 MINIMUM_BGP_PREFIX_IPV4 = 24
-MINIMUM_BGP_PREFIX_IPV6 = 128  # FIXME
+MINIMUM_BGP_PREFIX_IPV6 = 128
 
 
 class CymruExpertBot(Bot):
@@ -19,24 +17,22 @@ class CymruExpertBot(Bot):
                            self.parameters.redis_cache_port,
                            self.parameters.redis_cache_db,
                            self.parameters.redis_cache_ttl,
+                           getattr(self.parameters, "redis_cache_password",
+                                   None)
                            )
 
     def process(self):
         event = self.receive_message()
-
-        if event is None:
-            self.acknowledge_message()
-            return
 
         keys = ["source.%s", "destination.%s"]
 
         for key in keys:
             ip_key = key % "ip"
 
-            if not event.contains(ip_key):
+            if ip_key not in event:
                 continue
 
-            ip = event.value(ip_key)
+            ip = event.get(ip_key)
             ip_version = IPAddress.version(ip)
             ip_integer = IPAddress.to_int(ip)
 
@@ -57,17 +53,18 @@ class CymruExpertBot(Bot):
                 result = json.loads(result_json)
             else:
                 result = Cymru.query(ip)
+                if not result:
+                    continue
                 result_json = json.dumps(result)
                 self.cache.set(cache_key, result_json)
 
             for result_key, result_value in result.items():
-                event.add(key % result_key, result_value, sanitize=True,
-                          force=True)
+                if result_key == 'registry' and result_value == 'other':
+                    continue
+                event.add(key % result_key, result_value, overwrite=True)
 
         self.send_message(event)
         self.acknowledge_message()
 
 
-if __name__ == "__main__":
-    bot = CymruExpertBot(sys.argv[1])
-    bot.start()
+BOT = CymruExpertBot

@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 
-import json
 import unittest
 
 import intelmq.lib.test as test
@@ -22,6 +20,7 @@ EVENT_TEMPL = {"feed.url": "https://dgarchive.caad.fkie.fraunhofer.de/today",
                "feed.name": "Fraunhofer DGA",
                "__type": "Event",
                "classification.type": "c&c",
+               'malware.name': 'banjori',
                "time.observation": "2015-01-01T00:00:00+00:00",
                }
 EXAMPLE_EVENTS_PARTS = [{'raw': 'YW5kZXJzZW5zaW5haXguY29t',
@@ -48,7 +47,7 @@ class TestFraunhoferDGAParserBot(test.BotTestCase, unittest.TestCase):
     @classmethod
     def set_bot(cls):
         cls.bot_reference = FraunhoferDGAParserBot
-        cls.default_input_message = json.dumps(EXAMPLE_REPORT)
+        cls.default_input_message = EXAMPLE_REPORT
 
     def test_events(self):
         """ Test if correct Events have been produced. """
@@ -58,5 +57,5 @@ class TestFraunhoferDGAParserBot(test.BotTestCase, unittest.TestCase):
             self.assertMessageEqual(position, event)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     unittest.main()

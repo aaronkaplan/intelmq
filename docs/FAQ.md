@@ -1,57 +1,38 @@
-## Imbox Module Error
+## Send IntelMQ events to Splunk
 
-**Error:**
-```
-Pipeline connection failed (error("UID command error: BAD ['Error in IMAP command UID STORE: Flags list contains non-atoms.']",))
-```
-
-**Solution:**
-```
-root@server:~# python
-Python 2.7.3 (default, Feb 27 2014, 20:00:17) 
-[GCC 4.6.3] on linux2
-Type "help", "copyright", "credits" or "license" for more information.
->>> import imbox
->>> print imbox.__path__
-['/usr/local/lib/python2.7/dist-packages/imbox']
-```
-
-Replace the following line in the file '/usr/local/lib/python2.7/dist-packages/imbox':
-
-```
-self.connection.uid('STORE', uid, '+FLAGS', '\\Seen')
-```
-
-To:
-
-```
-self.connection.uid('STORE', uid, '+FLAGS', '(\\Seen)')
-```
-
-
-## Timezone - Naive Datetime
-
-**Error:**
-```
-Pipeline connection failed (ValueError('astimezone() cannot be applied to a naive datetime',))
-```
-
-**Solution:**
-
-Every timestamp ('source_time' or 'observation_time') must have a timezone.
-
-Bad Example:
-```
-2014-06-25 00:00:00
-```
-
-Good Example:
-```
-2014-06-25 00:00:00 UTC
-```
-
-Consult this example how ShadowServer SNMP Bot solve the problem.
+1. Go to Splunk and configure in order to be able to receive logs(intelmq events) to a tcp port
+2. Use tcp output bot and configure accordingly to the Splunk configuration that you applied.
 
 ## Git information
 
 https://docs.scipy.org/doc/numpy/dev/gitwash/development_workflow.html
+
+## Permission denied when using redis unix socket
+
+If you get an error like this:
+
+```
+intelmq.lib.exceptions.PipelineError: pipeline failed - ConnectionError('Error 13 connecting to unix socket: /var/run/redis/redis.sock. Permission denied.',)
+```
+
+make sure the permissions for the socket are set accordingly in `/etc/redis/redis.conf` (or wherever your config is), e.g.:
+
+    unixsocketperm 777
+
+## Why is the time invalid?
+
+If you wonder why you are getting errors like this:
+```python
+intelmq.lib.exceptions.InvalidValue: invalid value '2017-03-06T07:36:29' () for key 'time.source'
+```
+IntelMQ is requires time zone information for all timestamps. Without a time zone, the time is not usable and therefore will be rejected.
+
+## How can I improve the speed?
+
+In most cases the bottlenecks are look-up experts. In these cases you can easily use the integrated load balancing features. Create multiple instances of the same bot and connect them all to the same source and destination bots. Then set the parameter `load_balance` to `true` for the bot which sends the messages to the duplicated bot. Then, the bot sends messages to only one of the destination queues and not to all of them.
+
+See also this discussion on a possible enhanced load balancing: https://github.com/certtools/intelmq/issues/186
+
+## My bot(s) died on startup with no errors logged
+
+Rather than starting your bot(s) with `intelmqctl start`, try `intelmqctl run [bot]`. This will provide valuable debug output you might not otherwise see, pointing to issues like configuration errors.

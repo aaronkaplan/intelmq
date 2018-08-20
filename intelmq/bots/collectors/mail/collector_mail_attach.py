@@ -1,64 +1,69 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
+"""
+In Version 0.9.5 the attachment filename is no longer surrounded by double quotes, see for the discussion:
+https://github.com/certtools/intelmq/pull/1134
+https://github.com/martinrusev/imbox/commit/7c6cc2fb5f7e39c1496d68f3d432eec19517bf8e#diff-1ae09572064c2e7c225de54ad5b49154
+"""
 import re
-import sys
 import zipfile
 
-import imbox
-from intelmq.lib.bot import Bot
-from intelmq.lib.harmonization import DateTime
-from intelmq.lib.message import Report
+from intelmq.lib.bot import CollectorBot
+
+try:
+    import imbox
+except ImportError:
+    imbox = None
 
 
-class MailAttachCollectorBot(Bot):
+class MailAttachCollectorBot(CollectorBot):
+
+    def init(self):
+        if imbox is None:
+            self.logger.error('Could not import imbox. Please install it.')
+            self.stop()
 
     def process(self):
         mailbox = imbox.Imbox(self.parameters.mail_host,
                               self.parameters.mail_user,
                               self.parameters.mail_password,
                               self.parameters.mail_ssl)
-        emails = mailbox.messages(folder=self.parameters.mail_folder, unread=True)
+        emails = mailbox.messages(folder=self.parameters.folder, unread=True)
 
         if emails:
             for uid, message in emails:
 
-                if (self.parameters.mail_subject_regex and
-                        not re.search(self.parameters.mail_subject_regex,
-                                      message.subject)):
+                if (self.parameters.subject_regex and
+                        not re.search(self.parameters.subject_regex,
+                                      re.sub(r"\r\n\s", " ", message.subject))):
                     continue
-
-                self.logger.info("Reading email report")
 
                 for attach in message.attachments:
                     if not attach:
                         continue
 
-                    # remove quote marks from filename
-                    attach_name = attach['filename'][
-                        1:len(attach['filename']) - 1]
+                    attach_filename = attach['filename']
+                    if attach_filename.startswith('"'):  # for imbox versions older than 0.9.5, see also above
+                        attach_filename = attach_filename[1:-1]
 
-                    if re.search(self.parameters.mail_attach_regex, attach_name):
+                    if re.search(self.parameters.attach_regex, attach_filename):
 
-                        if self.parameters.mail_attach_unzip:
+                        if self.parameters.attach_unzip:
                             zipped = zipfile.ZipFile(attach['content'])
                             raw_report = zipped.read(zipped.namelist()[0])
                         else:
                             raw_report = attach['content'].read()
 
-                        report = Report()
-                        report.add("raw", raw_report, sanitize=True)
-                        report.add("feed.name", self.parameters.feed,
-                                   sanitize=True)
-                        time_observation = DateTime().generate_datetime_now()
-                        report.add('time.observation', time_observation,
-                                   sanitize=True)
+                        report = self.new_report()
+                        report.add("raw", raw_report)
 
                         self.send_message(report)
 
-                mailbox.mark_seen(uid)
-                self.logger.info("Email report read")
+                        # Only mark read if message relevant to this instance,
+                        # so other instances watching this mailbox will still
+                        # check it.
+                        mailbox.mark_seen(uid)
+                self.logger.debug("Email report read.")
+        mailbox.logout()
 
 
-if __name__ == "__main__":
-    bot = MailAttachCollectorBot(sys.argv[1])
-    bot.start()
+BOT = MailAttachCollectorBot

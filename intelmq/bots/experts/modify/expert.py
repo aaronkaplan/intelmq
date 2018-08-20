@@ -2,77 +2,98 @@
 """
 Modify Expert bot let's you manipulate all fields with a config file.
 """
-from __future__ import unicode_literals
 import re
-import sys
 
 from intelmq.lib.bot import Bot
 from intelmq.lib.utils import load_configuration
 
 
-def matches(event, *rules):
-    condition = {}
-    for rule in rules:
-        condition.update(rule)
+class MatchGroupMapping:
 
-    for name, rule in condition.items():
-        # empty string means non-existant field
-        if rule == '':
-            if name in event:
-                return False
-            else:
-                continue
-        if name not in event:
-            return False
-        if not re.search(rule, event[name]):
-            return False
+    """Wrapper for a regexp match object with a dict-like interface.
+    With this, we can access the match groups from within a format
+    replacement field.
+    """
 
-    return True
+    def __init__(self, match):
+        self.match = match
+
+    def __getitem__(self, key):
+        return self.match.group(key)
 
 
-def apply_action(event, action):
-    for name, value in action.items():
-        event.add(name, value.format(msg=event), sanitize=True, force=True)
+def convert_config(old):
+    config = []
+    for groupname, group in old.items():
+        for rule_name, rule in group.items():
+            config.append({"rulename": groupname + ' ' + rule_name,
+                           "if": rule[0],
+                           "then": rule[1]})
+
+    return config
 
 
 class ModifyExpertBot(Bot):
 
     def init(self):
         self.config = load_configuration(self.parameters.configuration_path)
+        if type(self.config) is dict:
+            self.config = convert_config(self.config)
+
+    def matches(self, identifier, event, condition):
+        matches = {}
+
+        for name, rule in condition.items():
+            # empty string means non-existent field
+            if rule == '':
+                if name in event:
+                    return None
+                else:
+                    continue
+            if name not in event:
+                return None
+            if not isinstance(rule, type(event[name])):
+                if isinstance(rule, str) and isinstance(event[name], (int, float)):
+                    match = re.search(rule, str(event[name]))
+                    if match is None:
+                        return None
+                    else:
+                        matches[name] = match
+                else:
+                    self.logger.warn("Type of rule (%r) and data (%r) do not "
+                                     "match in %s, %s!",
+                                     type(rule), type(event[name]), identifier, name)
+            elif not isinstance(event[name], str):  # int, float, etc
+                if event[name] != rule:
+                    return None
+            else:
+                match = re.search(rule, event[name])
+                if match is None:
+                    return None
+                else:
+                    matches[name] = match
+
+        return matches
+
+    def apply_action(self, event, action, matches):
+        for name, value in action.items():
+            event.add(name, value.format(msg=event,
+                                         matches={k: MatchGroupMapping(v)
+                                                  for (k, v) in matches.items()}),
+                      overwrite=True)
 
     def process(self):
         event = self.receive_message()
 
-        if event is None:
-            self.acknowledge_message()
-            return
-
-        for section_id, section in self.config.items():
-            default_cond = section.get('__default', [{}, {}])[0]
-            default_action = section.get('__default', [{}, {}])[1]
-            if not matches(event, default_cond):
-                continue
-
-            applied = False
-            for rule_id, (rule_cond, rule_action) in section.items():
-                if rule_id == '__default':
-                    continue
-                if matches(event, default_cond, rule_cond):
-                    self.logger.debug('Apply rule {}/{}.'.format(section_id,
-                                                                 rule_id))
-                    apply_action(event, rule_action)
-                    applied = True
-                    continue
-
-            if not applied:
-                self.logger.debug('Apply default rule {}/__default.'
-                                  ''.format(section_id))
-                apply_action(event, default_action)
+        for rule in self.config:
+            rule_id, rule_selection, rule_action = rule['rulename'], rule['if'], rule['then']
+            matches = self.matches(rule_id, event, rule_selection)
+            if matches is not None:
+                self.logger.debug('Apply rule %s.', rule_id)
+                self.apply_action(event, rule_action, matches)
 
         self.send_message(event)
         self.acknowledge_message()
 
 
-if __name__ == "__main__":
-    bot = ModifyExpertBot(sys.argv[1])
-    bot.start()
+BOT = ModifyExpertBot

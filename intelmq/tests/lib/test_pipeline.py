@@ -2,20 +2,17 @@
 """
 Testing the pipeline functions of intelmq.
 
-We are testing sending and receiving on the same queue for Redis, Zeromq
-and Pythonlist.
-Unicode compatibility is not tested, as it needs discussion.
-TODO: #281
+We are testing sending and receiving on the same queue for Redis and
+Pythonlist.
 TODO: clear_queues
-TODO: count_queued_messages
 TODO: acknowledge
 TODO: check internal representation of data in redis (like with Pythonlist)
 """
-from __future__ import unicode_literals
 
 import unittest
 
 import intelmq.lib.pipeline as pipeline
+import intelmq.lib.test as test
 
 SAMPLES = {'normal': [b'Lorem ipsum dolor sit amet',
                       'Lorem ipsum dolor sit amet'],
@@ -33,28 +30,46 @@ class TestPythonlist(unittest.TestCase):
         params = Parameters()
         params.broker = 'Pythonlist'
         self.pipe = pipeline.PipelineFactory.create(params)
-        self.pipe.set_queues('src', 'source')
-        self.pipe.set_queues('dst', 'destination')
+        self.pipe.set_queues('test-bot-input', 'source')
+        self.pipe.set_queues('test-bot-output', 'destination')
 
     def test_receive(self):
-        self.pipe.state['src'] = [SAMPLES['normal'][0]]
+        self.pipe.state['test-bot-input'] = [SAMPLES['normal'][0]]
         self.assertEqual(SAMPLES['normal'][1], self.pipe.receive())
 
     def test_send(self):
         self.pipe.send(SAMPLES['normal'][1])
         self.assertEqual(SAMPLES['normal'][0],
-                         self.pipe.state['dst'][0])
+                         self.pipe.state['test-bot-output'][0])
 
     def test_receive_unicode(self):
-        self.pipe.state['src'] = [SAMPLES['unicode'][0]]
+        self.pipe.state['test-bot-input'] = [SAMPLES['unicode'][0]]
         self.assertEqual(SAMPLES['unicode'][1], self.pipe.receive())
 
     def test_send_unicode(self):
         self.pipe.send(SAMPLES['unicode'][1])
         self.assertEqual(SAMPLES['unicode'][0],
-                         self.pipe.state['dst'][0])
+                         self.pipe.state['test-bot-output'][0])
+
+    def test_count(self):
+        self.pipe.send(SAMPLES['normal'][0])
+        self.pipe.send(SAMPLES['normal'][1])
+        self.pipe.send(SAMPLES['unicode'][0])
+        self.assertEqual(self.pipe.count_queued_messages('test-bot-output'),
+                         {'test-bot-output': 3})
+
+    def test_count_multi(self):
+        self.pipe.state['test-bot-input'] = [SAMPLES['normal'][0]]
+        self.pipe.send(SAMPLES['normal'][0])
+        self.pipe.send(SAMPLES['unicode'][0])
+        self.assertEqual(self.pipe.count_queued_messages('test-bot-input', 'test-bot-output'),
+                         {'test-bot-input': 1, 'test-bot-output': 2})
+
+    def tearDown(self):
+        self.pipe.state = {}
 
 
+@test.skip_redis()
 class TestRedis(unittest.TestCase):
 
     def setUp(self):
@@ -80,31 +95,17 @@ class TestRedis(unittest.TestCase):
         self.pipe.send(SAMPLES['unicode'][1])
         self.assertEqual(SAMPLES['unicode'][1], self.pipe.receive())
 
-    def tearDown(self):
-        self.pipe.disconnect()
-
-""" NotImplementedError
-class TestZeromq(unittest.TestCase):
-    def setUp(self):
-        params = Parameters()
-        params.broker = 'Zeromq'
-        self.pipe = pipeline.PipelineFactory.create(params)
-        self.pipe.source_queues('test')
-        self.pipe.destination_queues(['test'])
-        self.pipe.connect()
-
-    def test_send_receive(self):
+    def test_count(self):
+        self.clear()
         self.pipe.send(SAMPLES['normal'][0])
-        self.assertEqual(SAMPLES['normal'][0], self.pipe.receive())
-
-    def test_send_receive_unicode(self):
-        self.pipe.send(SAMPLES['unicode'][1])
-        self.assertEqual(SAMPLES['unicode'][1], self.pipe.receive())
+        self.pipe.send(SAMPLES['normal'][1])
+        self.pipe.send(SAMPLES['unicode'][0])
+        self.assertEqual(self.pipe.count_queued_messages('test'), {'test': 3})
 
     def tearDown(self):
         self.pipe.disconnect()
-        pass
-"""
+        self.clear()
 
-if __name__ == '__main__':
+
+if __name__ == '__main__':  # pragma: no cover  # pragma: no cover
     unittest.main()
