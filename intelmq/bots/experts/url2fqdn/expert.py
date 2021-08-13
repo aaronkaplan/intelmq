@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2015 robcza
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 from urllib.parse import urlparse
 
@@ -5,9 +9,8 @@ from intelmq.lib.bot import Bot
 
 
 class Url2fqdnExpertBot(Bot):
-
-    def init(self):
-        self.overwrite = getattr(self.parameters, 'overwrite', False)
+    """Parse the FQDN from the URL"""
+    overwrite = False
 
     def process(self):
         event = self.receive_message()
@@ -16,13 +19,17 @@ class Url2fqdnExpertBot(Bot):
 
             key_url = key + "url"
             key_fqdn = key + "fqdn"
+            key_ip = key + "ip"
             if key_url not in event:
                 continue
             if key_fqdn in event and not self.overwrite:
                 continue
 
             hostname = urlparse(event.get(key_url)).hostname
-            event.add(key_fqdn, hostname, overwrite=True, raise_failure=False)
+            if not event.add(key_fqdn, hostname, overwrite=self.overwrite,
+                             raise_failure=False):
+                event.add(key_ip, hostname, overwrite=self.overwrite,
+                          raise_failure=False)
 
         self.send_message(event)
         self.acknowledge_message()

@@ -1,10 +1,14 @@
+# SPDX-FileCopyrightText: 2015 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """
 The source provides a JSON file with a dictionary. The keys of this dict are
 identifiers and the values are lists of domains.
 
 The first part of the identifiers, before the first underscore, can be treated
-as malware name. The feed provider commited to retain this schema.
+as malware name. The feed provider committed to retain this schema.
 
 An overview of all names can be found here:
 https://dgarchive.caad.fkie.fraunhofer.de/pcres
@@ -18,6 +22,7 @@ __all__ = ['FraunhoferDGAParserBot']
 
 
 class FraunhoferDGAParserBot(Bot):
+    """Parse the Fraunhofer DGA feed"""
 
     def process(self):
         report = self.receive_message()
@@ -27,7 +32,7 @@ class FraunhoferDGAParserBot(Bot):
             malware_name = key.split('_')[0]
             for row in dict_report[key]:
                 event = self.new_event(report)
-                event.add('classification.type', 'c&c')
+                event.add('classification.type', 'c2-server')
                 event.add('malware.name', malware_name)
                 if not event.add('source.ip', row, raise_failure=False):
                     event.add('source.fqdn', row)

@@ -1,20 +1,32 @@
+# SPDX-FileCopyrightText: 2017 Pavel Kácha
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
+import errno
 import io
+import os
 import socket
 import time
-import errno
-import os
 from os import path
-
-from intelmq.lib.bot import Bot
+from intelmq.lib.bot import OutputBot
 from intelmq.lib.exceptions import ConfigurationError
 
 
-class FilesOutputBot(Bot):
+class FilesOutputBot(OutputBot):
+    """Write events lockfree into separate files"""
+    dir: str = "/opt/intelmq/var/lib/bots/files-output/incoming"  # TODO: could be path
+    hierarchical_output: bool = False
+    keep_raw_field: bool = False
+    message_jsondict_as_string: bool = False
+    message_with_type: bool = False
+    single_key: bool = False
+    suffix: str = ".json"
+    tmp: str = "/opt/intelmq/var/lib/bots/files-output/tmp"  # TODO: could be path
 
     def init(self):
-        self.tmp = self._ensure_path(self.parameters.tmp)
-        self.dir = self._ensure_path(self.parameters.dir)
+        self.tmp = self._ensure_path(self.tmp)
+        self.dir = self._ensure_path(self.dir)
         if os.stat(self.tmp).st_dev != os.stat(self.dir).st_dev:    # pragma: no cover (hard to test)
             raise ConfigurationError(
                 "bot setup",
@@ -34,7 +46,7 @@ class FilesOutputBot(Bot):
         """ Creates unique filename (Maildir inspired) """
         (inode, device) = os.fstat(fd)[1:3] if fd else (0, 0)
         return "%s.%d.%f.%d.%d%s" % (
-            self.hostname, self.pid, time.time(), device, inode, self.parameters.suffix)
+            self.hostname, self.pid, time.time(), device, inode, self.suffix)
 
     def create_unique_file(self):
         """ Safely creates machine-wide uniquely named file in tmp dir. """
@@ -60,10 +72,8 @@ class FilesOutputBot(Bot):
 
     def process(self):
         event = self.receive_message()
-        if self.parameters.single_key:
-            event_data = str(event.get(self.parameters.single_key))
-        else:
-            event_data = event.to_json(hierarchical=self.parameters.hierarchical_output)
+        event_data = self.export_event(event, return_type=str)
+
         # Create file in tmp dir
         f, name = self.create_unique_file()
         f.write(event_data)

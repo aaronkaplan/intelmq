@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2016 jgedeon120
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """ IntelMQ parser for Bambenek DGA, Domain, and IP feeds """
 
@@ -10,14 +14,17 @@ class BambenekParserBot(ParserBot):
     IPMASTERLIST = {
         'http://osint.bambenekconsulting.com/feeds/c2-ipmasterlist.txt',
         'https://osint.bambenekconsulting.com/feeds/c2-ipmasterlist.txt',
+        'https://faf.bambenekconsulting.com/feeds/dga/c2-ipmasterlist.txt',
     }
     DOMMASTERLIST = {
         'http://osint.bambenekconsulting.com/feeds/c2-dommasterlist.txt',
         'https://osint.bambenekconsulting.com/feeds/c2-dommasterlist.txt',
+        'https://faf.bambenekconsulting.com/feeds/dga/c2-dommasterlist.txt',
     }
     DGA_FEED = {
         'http://osint.bambenekconsulting.com/feeds/dga-feed.txt',
         'https://osint.bambenekconsulting.com/feeds/dga-feed.txt',
+        'https://faf.bambenekconsulting.com/feeds/dga-feed.txt',
     }
 
     MALWARE_NAME_MAP = {
@@ -46,19 +53,19 @@ class BambenekParserBot(ParserBot):
             if report['feed.url'] in BambenekParserBot.IPMASTERLIST:
                 event.add('source.ip', value[0])
                 event.add('time.source', value[2] + ' UTC')
-                event.add('classification.type', 'c&c')
+                event.add('classification.type', 'c2-server')
                 event.add('status', 'online')
 
             elif report['feed.url'] in BambenekParserBot.DOMMASTERLIST:
                 event.add('source.fqdn', value[0])
                 event.add('time.source', value[2] + ' UTC')
-                event.add('classification.type', 'c&c')
+                event.add('classification.type', 'c2-server')
                 event.add('status', 'online')
 
             elif report['feed.url'] in BambenekParserBot.DGA_FEED:
                 event.add('source.fqdn', value[0])
                 event.add('time.source', value[2] + ' 00:00 UTC')
-                event.add('classification.type', 'dga domain')
+                event.add('classification.type', 'dga-domain')
 
             else:
                 raise ValueError('Unknown data feed %s.' % report['feed.url'])

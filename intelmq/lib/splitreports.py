@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2016 Bernhard Herzog
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """
 Support for splitting large raw reports into smaller ones.
@@ -35,7 +39,7 @@ Other considerations:
    chunk size must take this into account, but multiplying the actual
    limit by 3/4 and subtracting a generous amount for the meta data.
 """
-from typing import BinaryIO, Generator, Optional, List
+from typing import BinaryIO, Generator, List, Optional
 
 from intelmq.lib.message import Report
 
@@ -52,7 +56,7 @@ def split_chunks(chunk: bytes, chunk_size: int) -> List[bytes]:
     Note in particular, that the last item may not end in a newline!
 
     Params:
-        chunk: The string to be splitted
+        chunk: The string to be split
         chunk_size: maximum size of each chunk
 
     Returns:

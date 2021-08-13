@@ -1,2 +1,4 @@
-elasticsearch>=5.0.0,<6.0.0
+# SPDX-FileCopyrightText: 2017 Sebastian Wagner
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
+elasticsearch>=7.0.0,<8.0.0

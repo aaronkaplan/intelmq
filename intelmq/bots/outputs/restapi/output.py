@@ -1,40 +1,74 @@
+# SPDX-FileCopyrightText: 2015 robcza
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
+from typing import Iterable
 
-import requests
+try:
+    import requests
+except ImportError:
+    requests = None
 
+import intelmq.lib.utils as utils
 from intelmq.lib.bot import Bot
+from intelmq.lib.exceptions import MissingDependencyError
 
 
 class RestAPIOutputBot(Bot):
+    """Send events to a REST API listener through HTTP POST"""
+    auth_token_name: str = None
+    auth_token: str = None
+    auth_type = None
+    hierarchical_output: bool = False
+    host: str = None
+    use_json: bool = True
+
+    _auth: Iterable[str] = None
 
     def init(self):
-        self.session = requests.Session()
+        if requests is None:
+            raise MissingDependencyError("requests")
+
         self.set_request_parameters()
-        if self.parameters.auth_token_name and self.parameters.auth_token:
-            if self.parameters.auth_type == 'http_header':
-                self.session.headers.update(
-                    {self.parameters.auth_token_name: self.parameters.auth_token})
-            elif self.parameters.auth_type == 'http_basic_auth':
-                self.session.auth = self.parameters.auth_token_name, self.parameters.auth_token
-        self.session.headers.update({"content-type":
-                                     "application/json; charset=utf-8"})
+
+        if self.auth_token_name and self.auth_token:
+            if self.auth_type == 'http_header':
+                self.http_header.update(
+                    {self.auth_token_name: self.auth_token})
+            elif self.auth_type == 'http_basic_auth':
+                self.auth = self.auth_token_name, self.auth_token
+        self.http_header.update({"Content-Type":
+                                 "application/json; charset=utf-8"})
+
+        self.session = utils.create_request_session(self)
         self.session.keep_alive = False
 
     def process(self):
         event = self.receive_message()
-        if self.parameters.use_json:
-            kwargs = {'json': event.to_dict(hierarchical=self.parameters.hierarchical_output)}
+        if self.use_json:
+            kwargs = {'json': event.to_dict(hierarchical=self.hierarchical_output)}
         else:
-            kwargs = {'data': event.to_dict(hierarchical=self.parameters.hierarchical_output)}
+            kwargs = {'data': event.to_dict(hierarchical=self.hierarchical_output)}
 
-        r = self.session.post(self.parameters.host,
-                              proxies=self.proxy,
-                              headers=self.http_header,
-                              verify=self.http_verify_cert,
-                              cert=self.ssl_client_cert,
-                              timeout=self.http_timeout_sec,
-                              **kwargs)
-        r.raise_for_status()
+        timeoutretries = 0
+        req = None
+        while timeoutretries < self.http_timeout_max_tries and req is None:
+            try:
+                req = self.session.post(self.host,
+                                        timeout=self.http_timeout_sec,
+                                        **kwargs)
+            except requests.exceptions.Timeout:
+                timeoutretries += 1
+
+        if req is None and timeoutretries >= self.http_timeout_max_tries:
+            raise ValueError("Request timed out %i times in a row."
+                             "" % timeoutretries)
+
+        if not req.ok:
+            self.logger.debug("Error during message sending, response body: %r.",
+                              req.text)
+        req.raise_for_status()
         self.logger.debug('Sent message.')
         self.acknowledge_message()
 

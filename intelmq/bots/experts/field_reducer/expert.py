@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2017 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """
 Reducer bot
@@ -8,11 +12,11 @@ from intelmq.lib.message import Event
 
 
 class FieldReducerExpertBot(Bot):
+    """Remove fields from events"""
+    type = None
+    keys = None
 
     def init(self):
-        self.type = self.parameters.type
-        self.keys = self.parameters.keys
-
         if self.type not in ['whitelist', 'blacklist']:
             raise ValueError("Invalid configuration: value of 'type' not allowed.")
         if isinstance(self.keys, str):

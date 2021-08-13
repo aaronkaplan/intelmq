@@ -1,8 +1,21 @@
+<!--
+SPDX-FileCopyrightText: 2017 Gernot Schulz
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 Shadowserver test feeds
 =======================
 
 This directory contains anonymized Shadowserver feeds that can be used for
 testing.
+
+Restrictions:
+
+All csv files here must have a valid name, otherwise test_testdata.py will fail.
+To use a file with an invalid filename, it must be named with another extension
+such as scan_chargen.short, used in test_scan_chargen.py
+
 
 clean-shadowserver.awk
 ----------------------

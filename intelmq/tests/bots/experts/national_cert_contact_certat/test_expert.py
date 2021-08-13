@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2017 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """
 Testing certat_contact
@@ -32,9 +36,13 @@ EXAMPLE_OUTPUT6 = {"__type": "Event",
                    "source.geolocation.cc": "US",
                    "time.observation": "2015-01-01T00:00:00+00:00",
                    }
+MISSING_RESULT = {"__type": "Event",
+                  "source.ip": "10.0.0.1",
+                  }
 
 
 @test.skip_internet()
+@test.skip_ci()
 class TestNationalCERTContactCertATExpertBot(test.BotTestCase, unittest.TestCase):
     """
     A TestCase for NationalCERTContactCertATExpertBot.
@@ -57,6 +65,11 @@ class TestNationalCERTContactCertATExpertBot(test.BotTestCase, unittest.TestCase
         self.input_message = EXAMPLE_INPUT6
         self.run_bot()
         self.assertMessageEqual(0, EXAMPLE_OUTPUT6)
+
+    def test_missing_result(self):
+        self.input_message = MISSING_RESULT
+        self.run_bot()
+        self.assertMessageEqual(0, MISSING_RESULT)
 
 
 if __name__ == '__main__':  # pragma: no cover

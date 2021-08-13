@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2015 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 
 import os
@@ -26,7 +30,8 @@ EVENTS = [{"feed.name": "DShield Block",
            "time.observation": "2015-01-01T00:00:00+00:00",
            "source.geolocation.cc": "JP",
            "source.abuse_contact": "admin@v6nic.net",
-           "extra": '{"attacks": 788, "network_name": "Japan Inet"}',
+           "extra.network_name": "Japan Inet",
+           "extra.attacks": 788,
            "raw": "NDMuMjI5LjUzLjAJNDMuMjI5LjUzLjI1NQkyNAk3ODgJSmFwYW4gSW5ldAlKUAlhZG1pbkB2Nm5pYy5uZXQ=",
            },
           {"feed.name": "DShield Block",
@@ -36,7 +41,7 @@ EVENTS = [{"feed.name": "DShield Block",
            "source.network": "194.63.140.0/24",
            "classification.type": "blacklist",
            "time.observation": "2015-01-01T00:00:00+00:00",
-           "extra": '{"attacks": 585}',
+           "extra.attacks": 585,
            "raw": "MTk0LjYzLjE0MC4wCTE5NC42My4xNDAuMjU1CTI0CTU4NQ==",
            }]
 

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2016 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """
 Testing File Collector
@@ -18,6 +22,7 @@ OUTPUT = {"__type": "Report",
           "feed.accuracy": 100.,
           "feed.url": "file://localhost" + PATH,
           "raw": utils.base64_encode(EXAMPLE_FILE),
+          "extra.file_name": "testfile.txt",
           }
 
 
@@ -33,7 +38,7 @@ class TestFileCollectorBot(test.BotTestCase, unittest.TestCase):
         cls.sysconfig = {'path': file_path,
                          'postfix': '.txt',
                          'delete_file': False,
-                         'feed': 'Example feed',
+                         'name': 'Example feed',
                          'chunk_size': None,
                          'chunk_replicate_header': True,
                          }

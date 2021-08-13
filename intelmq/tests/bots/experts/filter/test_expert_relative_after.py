@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2015 robcza
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 
 import unittest
@@ -6,7 +10,7 @@ import intelmq.lib.test as test
 from intelmq.bots.experts.filter.expert import FilterExpertBot
 
 EXAMPLE_INPUT = {"__type": "Event",
-                 "classification.type": "defacement",
+                 "classification.type": "unauthorised-information-modification",
                  "time.source": "2005-01-01T00:00:00+00:00",
                  "time.observation": "2015-09-12T00:00:00+00:00",
                  "feed.name": "test-feed",
@@ -26,6 +30,17 @@ class TestFilterExpertBot(test.BotTestCase, unittest.TestCase):
 
     def test_Relative_After(self):
         self.run_bot()
+        self.assertMessageEqual(0, EXAMPLE_INPUT)
+
+    def test_bug_1523(self):
+        """
+        > For relative filter, if param not_after: x hours (x < 24) is given, instead of being parsed as datetime.timedelta
+        > ...
+        > Leading to error
+        > TypeError: can't compare offset-naive and offset-aware datetimes
+        https://github.com/certtools/intelmq/issues/1523
+        """
+        self.run_bot(parameters={'not_after': '10 hours'})
         self.assertMessageEqual(0, EXAMPLE_INPUT)
 
 if __name__ == '__main__':  # pragma: no cover

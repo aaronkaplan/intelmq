@@ -1,9 +1,10 @@
+# SPDX-FileCopyrightText: 2015 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """
-Testing asn_lookup.
-
-see asn_lookup README for how to download database
-It is expected at /opt/intelmq/var/lib/bots/asn_lookup/ipasn.dat by default
+Testing asn_lookup with a faked local database
 """
 
 import unittest

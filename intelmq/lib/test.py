@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2015 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """
 Utilities for testing intelmq bots.
@@ -5,14 +9,14 @@ Utilities for testing intelmq bots.
 The BotTestCase can be used as base class for unittests on bots. It includes
 some basic generic tests (logged errors, correct pipeline setup).
 """
-import copy
 import io
+import inspect
 import json
-import logging
 import os
 import re
 import unittest
 import unittest.mock as mock
+from itertools import chain
 
 import pkg_resources
 import redis
@@ -20,35 +24,41 @@ import redis
 import intelmq.lib.message as message
 import intelmq.lib.pipeline as pipeline
 import intelmq.lib.utils as utils
-from intelmq import CONFIG_DIR, PIPELINE_CONF_FILE, RUNTIME_CONF_FILE
+from intelmq import CONFIG_DIR, RUNTIME_CONF_FILE
 
 __all__ = ['BotTestCase']
 
-BOT_CONFIG = {"http_proxy": None,
-              "https_proxy": None,
-              "broker": "pythonlist",
+BOT_CONFIG = {"destination_pipeline_broker": "pythonlist",
+              "logging_handler": "stream",
+              "logging_path": None,
+              "logging_level": "DEBUG",
               "rate_limit": 0,
               "retry_delay": 0,
               "error_retry_delay": 0,
               "error_max_retries": 0,
-              "redis_cache_host": "localhost",
+              "redis_cache_host": os.getenv('INTELMQ_PIPELINE_HOST', 'localhost'),
               "redis_cache_port": 6379,
-              "redis_cache_db": 10,
+              "redis_cache_db": 4,
               "redis_cache_ttl": 10,
+              "redis_cache_password": os.environ.get('INTELMQ_TEST_REDIS_PASSWORD'),
+              "source_pipeline_broker": "pythonlist",
               "testing": True,
               }
 
 
-def mocked_config(bot_id='test-bot', src_name='', dst_names=(), sysconfig={}):
+class Parameters(object):
+    pass
+
+
+def mocked_config(bot_id='test-bot', sysconfig={}, group=None, module=None):
     def mocked(conf_file):
-        if conf_file == PIPELINE_CONF_FILE:
-            return {bot_id: {"source-queue": src_name,
-                             "destination-queues": dst_names},
-                    }
-        elif conf_file == RUNTIME_CONF_FILE:
-            conf = BOT_CONFIG.copy()
-            conf.update(sysconfig)
-            return {bot_id: {'parameters': conf}}
+        if conf_file == RUNTIME_CONF_FILE:
+            return {bot_id: {'description': 'Instance of a bot for automated unit tests.',
+                             'group': group,
+                             'module': module,
+                             'name': 'Test Bot',
+                             'parameters': sysconfig,
+                             }}
         elif conf_file.startswith(CONFIG_DIR):
             confname = os.path.join('etc/', os.path.split(conf_file)[-1])
             fname = pkg_resources.resource_filename('intelmq',
@@ -57,16 +67,12 @@ def mocked_config(bot_id='test-bot', src_name='', dst_names=(), sysconfig={}):
                 return json.load(fpconfig)
         else:
             return utils.load_configuration(conf_file)
+
     return mocked
 
 
-def mocked_logger(logger):
-    def log(name, log_path=None, log_level=None, stream=None, syslog=None):
-        # Return a copy as the bot may modify the logger and we should always return the intial logger
-        logger_new = copy.copy(logger)
-        logger_new.setLevel(log_level)
-        return logger_new
-    return log
+def mocked_get_global_settings():
+    return BOT_CONFIG
 
 
 def skip_database():
@@ -84,14 +90,18 @@ def skip_redis():
                            'Skipping without running redis.')
 
 
-def skip_local_web():
-    return unittest.skipUnless(os.environ.get('INTELMQ_TEST_LOCAL_WEB'),
-                               'Skipping local web tests.')
-
-
 def skip_exotic():
     return unittest.skipUnless(os.environ.get('INTELMQ_TEST_EXOTIC'),
                                'Skipping tests requiring exotic libs.')
+
+
+def skip_ci():
+    return unittest.skipIf(os.getenv('CI') == 'true', 'Test disabled on CI.')
+
+
+def skip_build_environment():
+    # For test that regularly fail in build environments like local or public Open Build Service builds
+    return unittest.skipIf(os.getenv('USER') == 'abuild', 'Test disabled in Build Service.')
 
 
 class BotTestCase(object):
@@ -110,6 +120,10 @@ class BotTestCase(object):
         """
         Set default values and save original functions.
         """
+        if not utils.drop_privileges():
+            raise ValueError('IntelMQ and IntelMQ tests must not run as root for security reasons. '
+                             'Dropping privileges did not work.')
+
         cls.bot_id = 'test-bot'
         cls.bot_name = None
         cls.bot = None
@@ -147,10 +161,16 @@ class BotTestCase(object):
                 utils.decode(json.dumps(cls.default_input_message))
 
         if cls.use_cache and not os.environ.get('INTELMQ_SKIP_REDIS'):
+            password = os.environ.get('INTELMQ_TEST_REDIS_PASSWORD') or \
+                (BOT_CONFIG['redis_cache_password'] if 'redis_cache_password' in BOT_CONFIG else None)
             cls.cache = redis.Redis(host=BOT_CONFIG['redis_cache_host'],
                                     port=BOT_CONFIG['redis_cache_port'],
                                     db=BOT_CONFIG['redis_cache_db'],
-                                    socket_timeout=BOT_CONFIG['redis_cache_ttl'])
+                                    socket_timeout=BOT_CONFIG['redis_cache_ttl'],
+                                    password=password,
+                                    )
+        elif cls.use_cache and os.environ.get('INTELMQ_SKIP_REDIS'):
+            cls.skipTest(cls, 'Requested cache requires deactivated Redis.')
 
     harmonization = utils.load_configuration(pkg_resources.resource_filename('intelmq',
                                                                              'etc/harmonization.conf'))
@@ -161,45 +181,68 @@ class BotTestCase(object):
     def new_event(self):
         return message.Event(harmonization=self.harmonization)
 
-    def prepare_bot(self):
-        """Reconfigures the bot with the changed attributes"""
+    def get_mocked_logger(self, logger):
+        def log(name, *args, **kwargs):
+            logger.handlers = self.logger_handlers_backup
+            return logger
+        return log
 
+    def prepare_bot(self, parameters={}, destination_queues=None):
+        """
+        Reconfigures the bot with the changed attributes.
+
+        Parameters:
+            parameters: optional bot parameters for this run, as dict
+            destination_queues: optional definition of destination queues
+                default: {"_default": "{}-output".format(self.bot_id)}
+        """
         self.log_stream = io.StringIO()
 
         src_name = "{}-input".format(self.bot_id)
-        dst_name = "{}-output".format(self.bot_id)
+        if not destination_queues:
+            destination_queues = {"_default": "{}-output".format(self.bot_id)}
+        else:
+            destination_queues = {queue_name: "%s-%s-output" % (self.bot_id,
+                                                                queue_name.strip('_'))
+                                  for queue_name in destination_queues}
 
+        config = BOT_CONFIG.copy()
+        config.update(self.sysconfig)
+        config.update(parameters)
+        config['destination_queues'] = destination_queues
         self.mocked_config = mocked_config(self.bot_id,
-                                           src_name,
-                                           [dst_name],
-                                           sysconfig=self.sysconfig,
+                                           sysconfig=config,
+                                           group=self.bot_type.title(),
+                                           module=self.bot_reference.__module__,
                                            )
 
-        logger = logging.getLogger(self.bot_id)
-        logger.setLevel("INFO")
-        console_formatter = logging.Formatter(utils.LOG_FORMAT)
-        console_handler = logging.StreamHandler(self.log_stream)
-        console_handler.setFormatter(console_formatter)
-        logger.addHandler(console_handler)
-        self.mocked_log = mocked_logger(logger)
-        logging.captureWarnings(True)
-        warnings_logger = logging.getLogger("py.warnings")
-        warnings_logger.addHandler(console_handler)
+        self.logger = utils.log(self.bot_id,
+                                log_path=False, stream=self.log_stream,
+                                log_format_stream=utils.LOG_FORMAT,
+                                log_level=config['logging_level'])
+        self.logger_handlers_backup = self.logger.handlers
 
-        class Parameters(object):
-            source_queue = src_name
-            destination_queues = [dst_name]
         parameters = Parameters()
-        self.pipe = pipeline.Pythonlist(parameters)
-        self.pipe.set_queues(parameters.source_queue, "source")
-        self.pipe.set_queues(parameters.destination_queues, "destination")
+        setattr(parameters, 'source_queue', src_name)
+        setattr(parameters, 'destination_queues', destination_queues)
 
         with mock.patch('intelmq.lib.utils.load_configuration',
                         new=self.mocked_config):
-            with mock.patch('intelmq.lib.utils.log', self.mocked_log):
-                self.bot = self.bot_reference(self.bot_id)
+            with mock.patch('intelmq.lib.utils.log', self.get_mocked_logger(self.logger)):
+                with mock.patch('intelmq.lib.utils.get_global_settings', mocked_get_global_settings):
+                    self.bot = self.bot_reference(self.bot_id)
+        self.bot._Bot__stats_cache = None
+
+        pipeline_args = {key: getattr(self, key) for key in dir(self) if not inspect.ismethod(getattr(self, key)) and (key.startswith('source_pipeline_') or key.startswith('destination_pipeline'))}
+        self.pipe = pipeline.Pythonlist(logger=self.logger, pipeline_args=pipeline_args, load_balance=self.bot.load_balance, is_multithreaded=self.bot.is_multithreaded)
+        self.pipe.set_queues(parameters.source_queue, "source")
+        self.pipe.set_queues(parameters.destination_queues, "destination")
+
+        self.prepare_source_queue()
+
+    def prepare_source_queue(self):
         if self.input_message is not None:
-            if type(self.input_message) is not list:
+            if not isinstance(self.input_message, (list, tuple)):
                 self.input_message = [self.input_message]
             self.input_queue = []
             for msg in self.input_message:
@@ -214,29 +257,77 @@ class BotTestCase(object):
             if self.default_input_message:  # None for collectors
                 self.input_queue = [self.default_input_message]
 
-    def run_bot(self, iterations: int = 1, error_on_pipeline: bool = False, prepare=True):
+    def test_static_bot_check_method(self, *args, **kwargs):
+        """
+        Check if the bot's static check() method completes without errors (exceptions).
+        The return value (errors) are *not* checked.
+
+        The arbitrary parameters for this test function are needed because if a
+        mocker mocks the test class, parameters can be added.
+        See for example `intelmq.tests.bots.collectors.http.test_collector`.
+        """
+        checks = self.bot_reference.check(self.sysconfig)
+        if checks is None:
+            return
+        self.assertIsInstance(checks, (list, tuple))
+        for check in checks:
+            self.assertIsInstance(check, (list, tuple),
+                                  '%s.check returned an invalid format. '
+                                  'Return value must be a sequence of sequences.'
+                                  '' % self.bot_name)
+            self.assertEqual(len(check), 2,
+                             '%s.check returned an invalid format. '
+                             'Return value\'s inner sequence must have a length of 2.'
+                             '' % self.bot_name)
+            self.assertNotEqual(check[0].upper(), 'ERROR',
+                                '%s.check returned the error %r.'
+                                '' % (self.bot_name, check[1]))
+        raise ValueError('checks is %r' % (checks, ))
+
+    def run_bot(self, iterations: int = 1, error_on_pipeline: bool = False,
+                prepare=True, parameters={},
+                allowed_error_count=0,
+                allowed_warning_count=0,
+                stop_bot: bool = True):
         """
         Call this method for actually doing a test run for the specified bot.
 
         Parameters:
             iterations: Bot instance will be run the given times, defaults to 1.
+            parameters: passed to prepare_bot
+            allowed_error_count: maximum number allow allowed errors in the logs
+            allowed_warning_count: maximum number allow allowed warnings in the logs
+            bot_stop: If the bot should be stopped/shut down after running it. Set to False, if you are calling this method again afterwards, as the bot shutdown destroys structures (pipeline, etc.)
         """
         if prepare:
-            self.prepare_bot()
+            self.prepare_bot(parameters=parameters)
+        elif parameters:
+            raise ValueError("Parameter 'parameters' is given, but parameter "
+                             "'prepare' is false. Parameters must be passed on "
+                             "to 'prepare_bot' to be effective.")
         with mock.patch('intelmq.lib.utils.load_configuration',
                         new=self.mocked_config):
-            with mock.patch('intelmq.lib.utils.log', self.mocked_log):
+            with mock.patch('intelmq.lib.utils.log', self.get_mocked_logger(self.logger)):
                 for run in range(iterations):
                     self.bot.start(error_on_pipeline=error_on_pipeline,
                                    source_pipeline=self.pipe,
                                    destination_pipeline=self.pipe)
+                if stop_bot:
+                    self.bot.stop(exitcode=0)
         self.loglines_buffer = self.log_stream.getvalue()
         self.loglines = self.loglines_buffer.splitlines()
 
-        """ Test if all pipes are created with correct names. """
-        pipenames = ["{}-input", "{}-input-internal", "{}-output"]
-        self.assertSetEqual({x.format(self.bot_id) for x in pipenames},
-                            set(self.pipe.state.keys()))
+        """ Test if input queue is empty. """
+        self.assertEqual(self.input_queue, [],
+                         'Not all input messages have been processed. '
+                         'You probably need to increase the number of '
+                         'iterations of `run_bot`.')
+
+        internal_queue_size = len(self.get_input_internal_queue())
+        self.assertEqual(internal_queue_size, 0,
+                         'The internal input queue is not empty, but has '
+                         f'{internal_queue_size} element(s). '
+                         'The bot did not acknowledge all messages.')
 
         """ Test if report has required fields. """
         if self.bot_type == 'collector':
@@ -244,7 +335,6 @@ class BotTestCase(object):
                 report = message.MessageFactory.unserialize(report_json,
                                                             harmonization=self.harmonization)
                 self.assertIsInstance(report, message.Report)
-                self.assertIn('feed.name', report)
                 self.assertIn('raw', report)
                 self.assertIn('time.observation', report)
 
@@ -264,9 +354,13 @@ class BotTestCase(object):
                                      "".format(self.bot_name,
                                                self.bot_id), "INFO")
         self.assertRegexpMatchesLog("INFO - Bot is starting.")
-        self.assertLoglineEqual(-1, "Bot stopped.", "INFO")
-        self.assertNotRegexpMatchesLog("(ERROR.*?){%d}" % (self.allowed_error_count + 1))
-        self.assertNotRegexpMatchesLog("(WARNING.*?){%d}" % (self.allowed_warning_count + 1))
+        if stop_bot:
+            self.assertLoglineEqual(-1, "Bot stopped.", "INFO")
+
+        allowed_error_count = max(allowed_error_count, self.allowed_error_count)
+        self.assertLessEqual(len(re.findall(' - ERROR - ', self.loglines_buffer)), allowed_error_count)
+        allowed_warning_count = max(allowed_warning_count, self.allowed_warning_count)
+        self.assertLessEqual(len(re.findall(' - WARNING - ', self.loglines_buffer)), allowed_warning_count)
         self.assertNotRegexpMatchesLog("CRITICAL")
         """ If no error happened (incl. tracebacks) we can check for formatting """
         if not self.allowed_error_count:
@@ -295,6 +389,14 @@ class BotTestCase(object):
         else:
             return []
 
+    def get_input_internal_queue(self):
+        """Returns the internal input queue of this bot which can be filled
+           with fixture data in setUp()"""
+        if self.pipe:
+            return self.pipe.state["%s-input-internal" % self.bot_id]
+        else:
+            return []
+
     def set_input_queue(self, seq):
         """Setter for the input queue of this bot"""
         self.pipe.state["%s-input" % self.bot_id] = [utils.encode(text) for
@@ -302,16 +404,20 @@ class BotTestCase(object):
 
     input_queue = property(get_input_queue, set_input_queue)
 
-    def get_output_queue(self):
-        """Getter for the input queue of this bot. Use in TestCase scenarios"""
-        return [utils.decode(text) for text
-                in self.pipe.state["%s-output" % self.bot_id]]
+    def get_output_queue(self, path="_default"):
+        """Getter for items in the output queues of this bot. Use in TestCase scenarios
+            If there is multiple queues in named queue group, we return all the items chained.
+        """
+        return [utils.decode(text) for text in chain(*[self.pipe.state[x] for x in self.pipe.destination_queues[path]])]
+        # return [utils.decode(text) for text in self.pipe.state["%s-output" % self.bot_id]]
 
-    def test_bot_name(self):
+    def test_bot_name(self, *args, **kwargs):
         """
         Test if Bot has a valid name.
         Must be CamelCase and end with CollectorBot etc.
-        Test class name must be Test{botclassname}
+
+        Accept arbitrary arguments in case the test methods get mocked
+        and get some additional arguments. All arguments are ignored.
         """
         counter = 0
         for type_name, type_match in self.bot_types.items():
@@ -322,10 +428,7 @@ class BotTestCase(object):
                 counter += 1
         if counter != len(self.bot_types) - 1:
             self.fail("Bot name {!r} does not match one of {!r}"
-                      "".format(self.bot_name, list(self.bot_types.values())))
-
-        self.assertEqual('Test{}'.format(self.bot_name),
-                         self.__class__.__name__)
+                      "".format(self.bot_name, list(self.bot_types.values())))  # pragma: no cover
 
     def assertAnyLoglineEqual(self, message: str, levelname: str = "ERROR"):
         """
@@ -347,7 +450,7 @@ class BotTestCase(object):
                 return
         else:
             raise ValueError('Logline with level {!r} and message {!r} not found'
-                             ''.format(levelname, message))
+                             ''.format(levelname, message))  # pragma: no cover
 
     def assertLoglineEqual(self, line_no: int, message: str, levelname: str = "ERROR"):
         """
@@ -358,13 +461,12 @@ class BotTestCase(object):
             message: Message text which is compared
             levelname: Log level of logline which is asserted
         """
-
         self.assertIsNotNone(self.loglines)
         logline = self.loglines[line_no]
         fields = utils.parse_logline(logline)
 
         self.assertEqual(self.bot_id, fields["bot_id"],
-                         "bot_id %s didn't match %s"
+                         "bot_id {!r} didn't match {!r}."
                          "".format(self.bot_id, fields["bot_id"]))
 
         self.assertEqual(levelname, fields["log_level"])
@@ -385,7 +487,7 @@ class BotTestCase(object):
         fields = utils.parse_logline(logline)
 
         self.assertEqual(self.bot_id, fields["bot_id"],
-                         "bot_id %s didn't match %s"
+                         "bot_id {!r} didn't match {!r}."
                          "".format(self.bot_id, fields["bot_id"]))
 
         self.assertEqual(levelname, fields["log_level"])
@@ -396,10 +498,9 @@ class BotTestCase(object):
         Asserts if any logline matches a specific requirement.
 
         Parameters:
-            pattern: Message text which is compared
-            type: Type of logline which is asserted
+            pattern: Message text which is compared, regular expression.
+            levelname: Log level of the logline which is asserted, upper case.
         """
-
         self.assertIsNotNone(self.loglines)
         for logline in self.loglines:
             fields = utils.parse_logline(logline)
@@ -411,7 +512,7 @@ class BotTestCase(object):
             elif levelname == fields["log_level"] and re.match(pattern, fields["message"]):
                 break
         else:
-            raise ValueError('No matching logline found.')
+            raise ValueError('No matching logline found.')  # pragma: no cover
 
     def assertRegexpMatchesLog(self, pattern):
         """Asserts that pattern matches against log. """
@@ -425,19 +526,19 @@ class BotTestCase(object):
         self.assertIsNotNone(self.loglines_buffer)
         self.assertNotRegex(self.loglines_buffer, pattern)
 
-    def assertOutputQueueLen(self, queue_len=0):
+    def assertOutputQueueLen(self, queue_len=0, path="_default"):
         """
         Asserts that the output queue has the expected length.
         """
-        self.assertEqual(len(self.get_output_queue()), queue_len)
+        self.assertEqual(len(self.get_output_queue(path=path)), queue_len)
 
-    def assertMessageEqual(self, queue_pos, expected_msg):
+    def assertMessageEqual(self, queue_pos, expected_msg, compare_raw=True, path="_default"):
         """
         Asserts that the given expected_message is
         contained in the generated event with
         given queue position.
         """
-        event = self.get_output_queue()[queue_pos]
+        event = self.get_output_queue(path=path)[queue_pos]
         self.assertIsInstance(event, str)
 
         event_dict = json.loads(event)
@@ -445,15 +546,25 @@ class BotTestCase(object):
             expected = expected_msg.to_dict(with_type=True)
         else:
             expected = expected_msg.copy()
+
+        if not compare_raw:
+            expected.pop('raw', None)
+            event_dict.pop('raw', None)
         if 'time.observation' in event_dict:
             del event_dict['time.observation']
         if 'time.observation' in expected:
             del expected['time.observation']
+        if 'output' in event_dict:
+            event_dict['output'] = json.loads(event_dict['output'])
+        if 'output' in expected:
+            expected['output'] = json.loads(expected['output'])
 
         self.assertDictEqual(expected, event_dict)
 
     def tearDown(self):
         """
         Check if the bot did consume all messages.
+
+        Executed after every test run.
         """
         self.assertEqual(len(self.input_queue), 0)

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2016 by Bundesamt für Sicherheit in der Informationstechnik
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """
 JSON Parser Bot
 Retrieves a base64 encoded JSON-String from raw and converts it into an
@@ -12,10 +15,12 @@ from intelmq.lib.utils import base64_decode
 
 
 class JSONParserBot(Bot):
+    """Parse IntelMQ-JSON data"""
+    splitlines = False
 
     def process(self):
         report = self.receive_message()
-        if getattr(self.parameters, 'splitlines', False):
+        if self.splitlines:
             lines = base64_decode(report['raw']).splitlines()
         else:
             lines = [base64_decode(report['raw'])]

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2016 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """
 These are all possible gaierrors according to the source:
@@ -21,30 +25,58 @@ permanent failure (default).
 import socket
 
 from intelmq.lib.bot import Bot
+from intelmq.lib.harmonization import URL
+from intelmq.lib.exceptions import InvalidArgument
 
 
 class GethostbynameExpertBot(Bot):
+    """Resolve the IP address for the FQDN"""
+    fallback_to_url: bool = True
+    gaierrors_to_ignore = ()
+    overwrite: bool = False
+
+    def init(self):
+        ignore = self.gaierrors_to_ignore
+        if not ignore:  # for null/None/empty lists or strings
+            ignore = ()
+        elif not isinstance(ignore, (list, tuple)):
+            ignore = ignore.split(',')
+        # otherwise a string
+        ignore = tuple(x.strip() for x in ignore)
+        # check if every element is an integer:
+        for x in ignore:
+            try:
+                int(x)
+            except TypeError:
+                raise InvalidArgument(argument='gaierrors_to_ignore', got=x,
+                                      expected='int', docs='the bot documentation.')
+        ignore = tuple(int(x) for x in ignore)  # convert to integers
+
+        self.ignore = (-2, -4, -5, -8, -11) + ignore
 
     def process(self):
         event = self.receive_message()
 
-        for key in ["source.", "destination."]:
-            key_fqdn = key + "fqdn"
-            key_ip = key + "ip"
-            if key_fqdn not in event:
+        for target in ("source.", "destination."):
+            fqdn, url, ip = (event.get(target + k) for k in ("fqdn", "url", "ip"))
+
+            if ip and not self.overwrite:
                 continue
-            if key_ip in event:
+            if not fqdn and self.fallback_to_url and url:
+                fqdn = URL.to_domain_name(url)
+            if not fqdn:
                 continue
             try:
-                ip = socket.gethostbyname(event.get(key_fqdn))
+                ip = socket.gethostbyname(fqdn)
             except socket.gaierror as exc:
-                print(repr(exc.args))
-                if exc.args[0] in [-2, -4, -5, -8, -11]:
+                if exc.args[0] in self.ignore:
+                    self.logger.debug('Ignored error %r for hostname %r.',
+                                      exc.args[0], fqdn)
                     pass
                 else:
                     raise
             else:
-                event.add(key_ip, ip, raise_failure=False)
+                event.add(target + "ip", ip, raise_failure=False, overwrite=self.overwrite)
 
         self.send_message(event)
         self.acknowledge_message()

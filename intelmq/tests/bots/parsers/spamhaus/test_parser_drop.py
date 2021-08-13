@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2015 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 
 import os
@@ -28,7 +32,7 @@ NETWORK_EVENTS = [{'feed.name': 'Spamhaus drop feed',
                    'time.source': '2015-09-14T04:39:22+00:00',
                    'classification.type': 'spam',
                    'source.network': '1.4.0.0/17',
-                   'extra': '{"blocklist": "SBL256893"}',
+                   'extra.blocklist': 'SBL256893',
                    'raw': 'MS40LjAuMC8xNyA7IFNCTDI1Njg5Mw==',
                   },
                   {'feed.name': 'Spamhaus drop feed',
@@ -38,7 +42,7 @@ NETWORK_EVENTS = [{'feed.name': 'Spamhaus drop feed',
                    'time.source': '2015-09-14T04:39:22+00:00',
                    'classification.type': 'spam',
                    'source.network': '2a06:e480::/29',
-                   'extra': '{"blocklist": "SBL301771"}',
+                   'extra.blocklist': 'SBL301771',
                    'raw': 'MmEwNjplNDgwOjovMjkgOyBTQkwzMDE3NzE=',
                   }]
 

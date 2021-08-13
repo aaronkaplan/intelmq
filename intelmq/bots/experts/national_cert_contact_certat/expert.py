@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2017 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """
 CERT.at geolocate the national CERT abuse service
@@ -15,16 +19,31 @@ Options:
 &sep={TAB, comma, semicolon, pipe}  	Separator for the (output) CSV format
 """
 
-import requests
-
 from intelmq.lib.bot import Bot
+from intelmq.lib.utils import create_request_session
+from intelmq.lib.exceptions import MissingDependencyError
+
+try:
+    import requests
+except ImportError:
+    requests = None
+
 
 URL = 'https://contacts.cert.at/cgi-bin/abuse-nationalcert.pl'
 
 
 class NationalCERTContactCertATExpertBot(Bot):
+    """Add country and abuse contact information from the CERT.at national CERT Contact Database. Set filter to true if you want to filter out events for Austria. Set overwrite_cc to true if you want to overwrite an existing country code value"""
+    filter: bool = False
+    http_verify_cert: bool = True
+    overwrite_cc: bool = False
+
     def init(self):
+        if requests is None:
+            raise MissingDependencyError("requests")
+
         self.set_request_parameters()
+        self.session = create_request_session(self)
 
     def process(self):
         event = self.receive_message()
@@ -36,19 +55,19 @@ class NationalCERTContactCertATExpertBot(Bot):
             if key in event:
                 parameters = {
                     'ip': event[key],
-                    'bFilter': 'on' if self.parameters.filter else 'off',
+                    'bFilter': 'on' if self.filter else 'off',
                     'bShowNationalCERT': 'on',
                     'sep': 'semicolon',
                 }
-                req = requests.get(URL, params=parameters,
-                                   proxies=self.proxy, headers=self.http_header,
-                                   verify=self.http_verify_cert,
-                                   timeout=self.http_timeout_sec
-                                   )
+                req = self.session.get(URL, params=parameters)
+                self.session.close()
+                if not req.text:
+                    # empty response
+                    continue
                 response = req.text.strip().split(';')
 
                 ccfield = '{}.geolocation.cc'.format(section)
-                if self.parameters.overwrite_cc or ccfield not in event:
+                if self.overwrite_cc or ccfield not in event:
                     event.add(ccfield, response[1])
 
                 if abuse in event:

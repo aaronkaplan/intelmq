@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2014-2021 Tomás Lima, Aaron Kaplan, Sebastian Wagner
+#
+# SPDX-License-Identifier: CC0-1.0
+
 *.bak
 *.swp
 *.pyc
@@ -20,6 +24,12 @@ htmlcov/
 src/
 .eggs
 
+# sphinx
+docs/source
+docs/_build
+docs/user/feeds.rst
+docs/dev/harmonization-fields.rst
+
 # Debian build filed
 debian/files
 debian/intelmq.postinst.debhelper
@@ -27,3 +37,4 @@ debian/intelmq.prerm.debhelper
 debian/intelmq.substvars
 debian/intelmq/
 /.pc/*
+/cover/

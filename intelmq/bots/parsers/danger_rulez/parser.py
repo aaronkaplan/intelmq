@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2015 National CyberSecurity Center
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 import re
 
@@ -9,6 +13,7 @@ REGEX_TIMESTAMP = "# ([^ \t]+ [^ \t]+)"
 
 
 class BruteForceBlockerParserBot(Bot):
+    """Parse the Danger Rulez feed"""
 
     def process(self):
         report = self.receive_message()
@@ -22,15 +27,19 @@ class BruteForceBlockerParserBot(Bot):
             event = self.new_event(report)
 
             match = re.search(REGEX_IP, row)
+            ip = None
             if match:
                 ip = match.group()
 
             match = re.search(REGEX_TIMESTAMP, row)
+            timestamp = None
             if match:
                 timestamp = match.group(1) + " UTC"
 
             if not timestamp:
                 raise ValueError('No timestamp found.')
+            elif not ip:
+                raise ValueError('No ip found.')
 
             event.add('time.source', timestamp)
             event.add('source.ip', ip)

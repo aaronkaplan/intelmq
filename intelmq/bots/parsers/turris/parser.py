@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2015 robcza
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 import csv
 import io
@@ -7,6 +11,7 @@ from intelmq.lib.bot import Bot
 
 
 class TurrisGreylistParserBot(Bot):
+    """Parse the Turris Greylist feed"""
 
     def process(self):
         report = self.receive_message()

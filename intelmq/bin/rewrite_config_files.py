@@ -1,4 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2016 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 
 import argparse
@@ -27,7 +32,7 @@ if __name__ == '__main__':  # pragma: no cover
                                      description="Test files")
     parser.add_argument('-c', '--config',
                         help='Path to the intelmq directory containing'
-                             'bots/BOTS, etc/*.conf',
+                             'etc/*.conf',
                         default='.')
     args = parser.parse_args()
 
@@ -38,8 +43,6 @@ if __name__ == '__main__':  # pragma: no cover
             with open(fn, 'r+') as f:
                 rewrite(f)
 
-        with open(os.path.join(config_file_path, 'bots/BOTS'), 'r+') as f:
-            rewrite(f)
     except IOError:
         traceback.print_exc()
         print('Could not open files. Wrong directory? Also see the --help.')

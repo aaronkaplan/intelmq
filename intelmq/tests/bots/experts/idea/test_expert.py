@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2017 Pavel Kácha
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 import unittest
 import json
@@ -9,7 +13,7 @@ from intelmq.lib.harmonization import ClassificationType
 
 TEST_INPUT1 = {
     "__type": "Event",
-    "classification.type": "malware",
+    "classification.type": "infected-system",
     "destination.ip": "2001:DB8::BB2B:F258",
     "destination.port": 22,
     "event_description.target": "DHL",
@@ -97,7 +101,7 @@ class TestHarmonization(unittest.TestCase):
 
     def test_classification_coverage(self):
         intelmq_harmonization = set(ClassificationType.allowed_values)
-        idea_expert = set(IdeaExpertBot.type_to_category.keys())
+        idea_expert = set(IdeaExpertBot.TYPE_TO_CATEGORY.keys())
         self.assertSetEqual(intelmq_harmonization, idea_expert)
 
 

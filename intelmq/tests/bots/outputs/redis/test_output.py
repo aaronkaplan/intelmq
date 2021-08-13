@@ -1,6 +1,11 @@
+# SPDX-FileCopyrightText: 2016 pedromreis
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 
 import json
+import os
 import unittest
 
 import redis
@@ -9,7 +14,7 @@ import intelmq.lib.test as test
 import intelmq.lib.utils as utils
 from intelmq.bots.outputs.redis.output import RedisOutputBot
 
-EXAMPLE_EVENT = {"classification.type": "malware",
+EXAMPLE_EVENT = {"classification.type": "infected-system",
                  "destination.port": 9796,
                  "feed.accuracy": 100.0,
                  "destination.ip": "52.18.196.169",
@@ -23,13 +28,14 @@ EXAMPLE_EVENT = {"classification.type": "malware",
                  "source.port": 65118,
                  "__type": "Event",
                  "feed.name": "BitSight",
-                 "extra": '{"non_ascii": "ççãããã\x80\ua000 \164 \x80\x80 abcd \165\166"}',
+                 "extra.non_ascii": "ççãããã\x80\ua000 \164 \x80\x80 abcd \165\166",
                  "raw": "eyJ0cm9qYW5mYW1pbHkiOiJTYWxpdHlwMnAiLCJlbnYiOnsic"
                  "mVtb3RlX2FkZHIiOiIxNTIuMTY2LjExOS4yIiwicmVtb3RlX3"
                  "BvcnQiOiI2NTExOCIsInNlcnZlcl9hZGRyIjoiNTIuMTguMTk"
                  "2LjE2OSIsInNlcnZlcl9wb3J0IjoiOTc5NiJ9LCJfdHMiOjE0"
                  "NjExMDc3NjgsIl9nZW9fZW52X3JlbW90ZV9hZGRyIjp7ImNvd"
-                 "W50cnlfbmFtZSI6IkRvbWluaWNhbiBSZXB1YmxpYyJ9fQ=="
+                 "W50cnlfbmFtZSI6IkRvbWluaWNhbiBSZXB1YmxpYyJ9fQ==",
+                 "__type": "Event",
                  }
 
 
@@ -39,16 +45,16 @@ class TestRedisOutputBot(test.BotTestCase, unittest.TestCase):
     def set_bot(cls):
         cls.bot_reference = RedisOutputBot
         cls.default_input_message = EXAMPLE_EVENT
-        cls.sysconfig = {"redis_server_ip": "127.0.0.1",
+        cls.sysconfig = {"redis_server_ip": os.getenv('INTELMQ_PIPELINE_HOST', 'localhost'),
                          "redis_server_port": 6379,
-                         "redis_db": 10,
+                         "redis_db": 4,
                          "redis_queue": "test-redis-output-queue",
-                         "redis_password": "none",
+                         "redis_password": os.getenv('INTELMQ_TEST_REDIS_PASSWORD'),
                          "redis_timeout": "50000"}
 
     @test.skip_redis()
     def test_event(self):
-        """ Setup Redis connection """
+        """ Test Redis output with default parameters. """
         redis_ip = self.sysconfig['redis_server_ip']
         redis_port = self.sysconfig['redis_server_port']
         redis_db = self.sysconfig['redis_db']
@@ -56,10 +62,15 @@ class TestRedisOutputBot(test.BotTestCase, unittest.TestCase):
         redis_password = self.sysconfig['redis_password']
         redis_timeout = self.sysconfig['redis_timeout']
         redis_conn = redis.ConnectionPool(host=redis_ip, port=redis_port,
-                                          db=redis_db)
-        redis_output = redis.StrictRedis(connection_pool=redis_conn,
-                                         socket_timeout=redis_timeout,
-                                         password=redis_password)
+                                          db=redis_db, password=redis_password)
+        redis_version = tuple(int(x) for x in redis.__version__.split('.'))
+        if redis_version >= (3, 0, 0):
+            redis_class = redis.Redis
+        else:
+            redis_class = redis.StrictRedis
+        redis_output = redis_class(connection_pool=redis_conn,
+                                   socket_timeout=redis_timeout,
+                                   password=redis_password)
 
         self.run_bot()
 

@@ -1,4 +1,14 @@
+# SPDX-FileCopyrightText: 2015 National CyberSecurity Center
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
+"""
+The mapping follows
+Reference Security Incident Taxonomy Working Group – RSIT WG
+https://github.com/enisaeu/Reference-Security-Incident-Taxonomy-Task-Force/
+with extensions.
+"""
 
 from intelmq.lib.bot import Bot
 
@@ -6,37 +16,56 @@ from intelmq.lib.bot import Bot
 
 TAXONOMY = {
     # type       # taxonomy
-    "phishing": "fraud",
-    "proxy": "Other",
+    # sorted!
+    "spam": "abusive-content",
+    "harmful-speech": "abusive-content",
+    "violence": "abusive-content",
     "ddos": "availability",
-    "spam": "abusive content",
-    "scanner": "information gathering",
-    "dropzone": "information content security",
-    "malware": "malicious code",
-    "botnet drone": "malicious code",
-    "ransomware": "malicious code",
-    "dga domain": "malicious code",
-    "malware configuration": "malicious code",
-    "c&c": "malicious code",
-    "exploit": "intrusion attempts",
-    "brute-force": "intrusion attempts",
-    "ids alert": "intrusion attempts",
-    "defacement": "intrusions",
-    "compromised": "intrusions",
-    "backdoor": "intrusions",
-    "vulnerable service": "vulnerable",
-    "blacklist": "other",
-    "unknown": "other",
-    "test": "test",
+    "dos": "availability",
+    "outage": "availability",
+    "sabotage": "availability",
+    "misconfiguration": "availability",
+    "copyright": "fraud",
+    "masquerade": "fraud",
+    "phishing": "fraud",
+    "unauthorized-use-of-resources": "fraud",
+    "unauthorised-information-access": "information-content-security",
+    "unauthorised-information-modification": "information-content-security",
+    "data-loss": "information-content-security",
+    "data-leak": "information-content-security",
+    "scanner": "information-gathering",
+    "sniffing": "information-gathering",
+    "social-engineering": "information-gathering",
+    "brute-force": "intrusion-attempts",
+    "exploit": "intrusion-attempts",
+    "ids-alert": "intrusion-attempts",
+    "application-compromise": "intrusions",
+    "burglary": "intrusions",
+    "privileged-account-compromise": "intrusions",
+    "system-compromise": "intrusions",
+    "unprivileged-account-compromise": "intrusions",
+    "c2-server": "malicious-code",
+    "dga-domain": "other",  # intentionally not in RSIT, see #1409, #1613 and https://github.com/enisaeu/Reference-Security-Incident-Taxonomy-Task-Force/pull/32
+    "infected-system": "malicious-code",
+    "malware-configuration": "malicious-code",
+    "malware-distribution": "malicious-code",
+    "blacklist": "other",  # intentionally not in RSIT
     "other": "other",
-    "tor": "other",
-    "leak": "information content security",
-    'unauthorized-login': 'intrusions',
-    'unauthorized-command': 'intrusions',
+    "undetermined": "other",
+    "malware": "other",  # intentionally not in RSIT
+    "proxy": "other",  # intentionally not in RSIT
+    "tor": "other",  # intentionally not in RSIT
+    "test": "test",
+    "ddos-amplifier": "vulnerable",
+    "information-disclosure": "vulnerable",
+    "potentially-unwanted-accessible": "vulnerable",
+    "vulnerable-system": "vulnerable",
+    "weak-crypto": "vulnerable",
 }
 
 
 class TaxonomyExpertBot(Bot):
+    """Apply the eCSIRT Taxonomy to all events"""
 
     def process(self):
         event = self.receive_message()
@@ -48,9 +77,9 @@ class TaxonomyExpertBot(Bot):
             event.add("classification.taxonomy", taxonomy)
         elif "classification.taxonomy" not in event and "classification.type" not in event:
             event.add("classification.taxonomy", 'other')
-            event.add("classification.type", 'unknown')
+            event.add("classification.type", 'undetermined')
         elif "classification.taxonomy" in event and "classification.type" not in event:
-            event.add("classification.type", 'unknown')
+            event.add("classification.type", 'undetermined')
         else:
             # classification given, type given... don't change it
             pass

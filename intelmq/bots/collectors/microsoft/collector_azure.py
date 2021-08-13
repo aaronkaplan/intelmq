@@ -1,64 +1,67 @@
+# SPDX-FileCopyrightText: 2017 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """
-Uses the azure.storage module from https://pypi.org/project/azure-storage/0.33.0/
-Tested with 0.33, probably works with >0.30 too.
+Uses the azure.storage.blob module. Tested with version 12.13.1
 """
-import datetime
 import gzip
 import io
-import urllib.parse
-
-import pytz
 
 from intelmq.lib.bot import CollectorBot
+from intelmq.lib.exceptions import MissingDependencyError
+from intelmq.lib.mixins import CacheMixin
 
 try:
-    import azure.storage
+    from azure.storage.blob import ContainerClient
 except ImportError:
-    azure = None  # noqa
+    ContainerClient = None  # noqa
+try:
+    from azure.storage.blob._shared.base_client import create_configuration
+except ImportError:
+    create_configuration = None  # noqa
 
 
-class MicrosoftAzureCollectorBot(CollectorBot):
+class MicrosoftAzureCollectorBot(CollectorBot, CacheMixin):
+    "Fetch data blobs from a Microsoft Azure container"
+    connection_string: str = "<insert your connection string here>"
+    container_name: str = "<insert the container name>"
+    rate_limit: int = 3600
+    redis_cache_db = "5"  # TODO could this be int?
+    redis_cache_host: str = "127.0.0.1"  # TODO could this be ip
+    redis_cache_password: str = None
+    redis_cache_port: int = 6379
+    redis_cache_ttl: int = 864000  # 10 days
+
     def init(self):
-        if azure is None:
-            raise ValueError('Could not import azure.storage. Please install it.')
+        if ContainerClient is None or create_configuration is None:
+            raise MissingDependencyError("azure.storage", version='>=12.0.0')
 
-        if hasattr(self.parameters, 'https_proxy'):
-            parsed = urllib.parse.urlparse(self.parameters.https_proxy)
-            self.proxy = {'host': parsed.hostname, 'port': parsed.port,
-                          'user': parsed.username, 'password': parsed.password}
-        else:
-            self.proxy = None
+        self.config = create_configuration(storage_sdk='blob')
+        if hasattr(self, 'https_proxy'):
+            # Create a storage configuration object and update the proxy policy
+            self.config.proxy_policy.proxies = {
+                'http': self.http_proxy,
+                'https': self.https_proxy,
+            }
 
     def process(self):
-        storage_client = azure.storage.CloudStorageAccount(self.parameters.account_name,
-                                                           self.parameters.account_key)
-        blob_service = storage_client.create_block_blob_service()
-        if self.proxy:
-            blob_service.set_proxy(**self.proxy)
-        containers = blob_service.list_containers()
-        for container in containers:
-            self.logger.info('Processing Container %r.', container.name)
-            if container.name == 'heartbeat':
-                if self.parameters.delete:
-                    blob_service.delete_container(container.name)
+        container_client = ContainerClient.from_connection_string(conn_str=self.connection_string,
+                                                                  container_name=self.container_name,
+                                                                  _configuration=self.config)
+        for blob in container_client.list_blobs():
+            if self.cache_get(blob.name):
+                self.logger.debug('Processed file %r already.', blob.name)
                 continue
-            time_container_fetch = datetime.datetime.now(pytz.timezone('UTC'))
-            for blob in blob_service.list_blobs(container.name):
-                self.logger.debug('Processing blob %r.', blob.name)
-                time_blob_fetch = datetime.datetime.now(pytz.timezone('UTC'))
-                blob_obj = io.BytesIO(blob_service.get_blob_to_bytes(container.name,
-                                                                     blob.name).content)
-                unzipped = gzip.GzipFile(fileobj=blob_obj).read().decode()
-                report = self.new_report()
-                report.add('raw', unzipped)
-                self.send_message(report)
-                if self.parameters.delete:
-                    blob_service.delete_blob(container.name, blob.name,
-                                             if_unmodified_since=time_blob_fetch)
-            if self.parameters.delete:
-                blob_service.delete_container(container.name,
-                                              if_unmodified_since=time_container_fetch)
+            self.logger.debug('Processing blob %r.', blob.name)
+            blob_obj = io.BytesIO()
+            container_client.download_blob(blob).readinto(blob_obj)
+            blob_obj.seek(0)
+            report = self.new_report()
+            report.add('raw', gzip.GzipFile(fileobj=blob_obj).read().decode())
+            self.send_message(report)
+            self.cache_set(blob.name, 1)  # Redis-py >= 3.0.0 does not allow True
 
 
 BOT = MicrosoftAzureCollectorBot

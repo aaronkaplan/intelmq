@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2016 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 import base64
 import datetime
@@ -10,9 +14,9 @@ import intelmq.lib.test as test
 import intelmq.lib.utils as utils
 
 RAW = """# ignore this
-2015/06/04 13:37 +00,example.org,192.0.2.3,reverse.example.net,example description,report@example.org,0
+2015/06/04 13:37 +00,example.org,192.0.2.3,reverse.example.net,example description,report@example.org,1
 
-2015/06/04 13:38 +00,example.org,19d2.0.2.3,reverse.example.net,example description,report@example.org,0
+2015/06/04 13:38 +00,example.org,19d2.0.2.3,reverse.example.net,example description,report@example.org,1
 #ending line"""
 RAW_SPLIT = RAW.splitlines()
 
@@ -29,16 +33,16 @@ EXAMPLE_EVENT = {"feed.url": "http://www.example.com/",
                  "source.account": "report@example.org",
                  "time.observation": "2015-08-11T13:03:40+00:00",
                  "__type": "Event",
-                 "classification.type": "malware",
+                 "classification.type": "malware-distribution",
                  "event_description.text": "example description",
-                 "source.asn": 0,
+                 "source.asn": 1,
                  "feed.name": "Example",
                  "raw": utils.base64_encode('\n'.join(RAW_SPLIT[:2]))}
 
 EXPECTED_DUMP = EXAMPLE_REPORT.copy()
 del EXPECTED_DUMP['__type']
 EXPECTED_DUMP['raw'] = base64.b64encode(b'''# ignore this
-2015/06/04 13:38 +00,example.org,19d2.0.2.3,reverse.example.net,example description,report@example.org,0
+2015/06/04 13:38 +00,example.org,19d2.0.2.3,reverse.example.net,example description,report@example.org,1
 #ending line''').decode()
 EXAMPLE_EMPTY_REPORT = {"feed.url": "http://www.example.com/",
                         "__type": "Report",
@@ -59,9 +63,9 @@ EXAMPLE_REPO_1 = {"feed.url": "http://www.example.com/",
 EXAMPLE_EVE_1 = {"feed.url": "http://www.example.com/",
                  "source.ip": "192.0.2.3",
                  "__type": "Event",
-                 "classification.type": "malware",
+                 "classification.type": "malware-distribution",
                  "feed.name": "Example",
-                 'raw': 'c291cmNlLmlwLGZvb2Jhcg0KMTkyLjAuMi4zLGJsbGFhDQo='
+                 'raw': 'c291cmNlLmlwLGZvb2Jhcg0KMTkyLjAuMi4zLGJsbGFh'
                  }
 
 EXAMPLE_SHORT = EXAMPLE_REPORT.copy()
@@ -74,14 +78,14 @@ class DummyParserBot(bot.ParserBot):
     """
 
     def parse_line(self, line, report):
-        if getattr(self.parameters, 'raise_warning', False):
+        if getattr(self, 'raise_warning', False):
             warnings.warn('This is a warning test.')
         if line.startswith('#'):
             self.logger.info('Lorem ipsum dolor sit amet.')
             self.tempdata.append(line)
         else:
             event = self.new_event(report)
-            self.logger.debug('test')
+            self.logger.debug('test!')
             line = line.split(',')
             event['time.source'] = line[0]
             event['source.fqdn'] = line[1]
@@ -90,7 +94,7 @@ class DummyParserBot(bot.ParserBot):
             event['event_description.text'] = line[4]
             event['source.account'] = line[5]
             event['source.asn'] = line[6]
-            event['classification.type'] = 'malware'
+            event['classification.type'] = 'malware-distribution'
             event['raw'] = '\n'.join(self.tempdata+[','.join(line)])
             yield event
 
@@ -103,12 +107,12 @@ class DummyCSVParserBot(bot.ParserBot):
     A csv parser bot only for testing purpose.
     """
     csv_fieldnames = ['source.ip', 'foobar']
-    ignore_lines_starting = ['#']
+    _ignore_lines_starting = ['#']
 
     def parse_line(self, line, report):
         event = self.new_event(report)
         event['source.ip'] = line['source.ip']
-        event['classification.type'] = 'malware'
+        event['classification.type'] = 'malware-distribution'
         event['raw'] = self.recover_line(line)
         yield event
 
@@ -126,22 +130,23 @@ class TestDummyParserBot(test.BotTestCase, unittest.TestCase):
         cls.bot_reference = DummyParserBot
         cls.default_input_message = EXAMPLE_REPORT
         cls.allowed_error_count = 1
+        cls.sysconfig = {'error_dump_message': True}
 
     def dump_message(self, error_traceback, message=None):
         self.assertDictEqual(EXPECTED_DUMP, message)
 
-    def run_bot(self):
+    def run_bot(self, *args, **kwargs):
         with mock.patch.object(bot.Bot, "_dump_message",
                                self.dump_message):
-            super(TestDummyParserBot, self).run_bot()
+            super().run_bot(*args, **kwargs)
 
     def test_event(self):
-        """ Test if correct Event has been produced. """
+        """ Test DummyParserBot """
         self.run_bot()
         self.assertMessageEqual(0, EXAMPLE_EVENT)
 
     def test_missing_raw(self):
-        """ Test if correct Event has been produced. """
+        """ Test DummyParserBot with missing raw. """
         self.input_message = EXAMPLE_EMPTY_REPORT
         self.allowed_warning_count = 1
         self.run_bot()
@@ -150,18 +155,16 @@ class TestDummyParserBot(test.BotTestCase, unittest.TestCase):
                                    levelname='WARNING')
 
     def test_processed_messages_count(self):
-        self.sysconfig = {'log_processed_messages_count': 1}
         self.input_message = EXAMPLE_SHORT
-        self.run_bot()
+        self.run_bot(parameters={'log_processed_messages_count': 1})
         self.assertAnyLoglineEqual(message='Processed 1 messages since last logging.',
                                    levelname='INFO')
 
     def test_processed_messages_seconds(self):
-        self.sysconfig = {'log_processed_messages_count': 10,
-                          'log_processed_messages_seconds': datetime.timedelta(seconds=0)}
         self.input_message = EXAMPLE_SHORT
-        self.run_bot()
-        self.assertAnyLoglineEqual(message='Processed 1 messages since last logging.',
+        self.run_bot(parameters={'log_processed_messages_count': 10,
+                                 'log_processed_messages_seconds': 0})
+        self.assertAnyLoglineEqual(message='Processed 2 messages since last logging.',
                                    levelname='INFO')
 
     def test_processed_messages_shutdown(self):
@@ -178,9 +181,49 @@ class TestDummyCSVParserBot(test.BotTestCase, unittest.TestCase):
         cls.default_input_message = EXAMPLE_REPO_1
 
     def test_event(self):
-        """ Test if correct Event has been produced. """
+        """ Test DummyCSVParserBot. """
         self.run_bot()
         self.assertMessageEqual(0, EXAMPLE_EVE_1)
+
+
+EXAMPLE_JSON_STREAM_REPORT = {'__type': 'Report',
+                              'raw': utils.base64_encode('''{"a": 1}
+{"a": 2}''')}
+EXAMPLE_JSON_STREAM_EVENTS = [{'__type': 'Event',
+                               'raw': utils.base64_encode('{"a": 1}'),
+                               'event_description.text': '1',
+                               'classification.type': 'other',
+                               },
+                              {'__type': 'Event',
+                               'raw': utils.base64_encode('{"a": 2}'),
+                               'event_description.text': '2',
+                               'classification.type': 'other',
+                               },
+                              ]
+
+
+class DummyJSONStreamParserBot(bot.ParserBot):
+    parse = bot.ParserBot.parse_json_stream
+    recover_line = bot.ParserBot.recover_line_json_stream
+
+    def parse_line(self, line, report):
+        event = self.new_event(report)
+        event['event_description.text'] = line['a']
+        event['classification.type'] = 'other'
+        event['raw'] = self.recover_line(line)
+        yield event
+
+
+class TestJSONStreamParserBot(test.BotTestCase, unittest.TestCase):
+    @classmethod
+    def set_bot(cls):
+        cls.bot_reference = DummyJSONStreamParserBot
+        cls.default_input_message = EXAMPLE_JSON_STREAM_REPORT
+
+    def test_event(self):
+        self.run_bot()
+        self.assertMessageEqual(0, EXAMPLE_JSON_STREAM_EVENTS[0])
+        self.assertMessageEqual(1, EXAMPLE_JSON_STREAM_EVENTS[1])
 
 
 if __name__ == '__main__':  # pragma: no cover

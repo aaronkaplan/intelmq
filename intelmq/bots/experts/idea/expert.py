@@ -1,8 +1,15 @@
+# SPDX-FileCopyrightText: 2017 Pavel Kácha
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
-from collections import Sequence, Mapping
+"""
+IDEA classification: https://idea.cesnet.cz/en/classifications
+"""
 from base64 import b64decode
-from uuid import uuid4
+from collections.abc import Mapping, Sequence
 from urllib.parse import quote_plus
+from uuid import uuid4
 
 from intelmq.lib.bot import Bot
 
@@ -20,48 +27,66 @@ def addr6(s):
 
 
 class IdeaExpertBot(Bot):
+    """Convert events into the IDEA format"""
+    test_mode: bool = False
 
-    type_to_category = {
+    TYPE_TO_CATEGORY = {
         "phishing": "Fraud.Phishing",
         "ddos": "Availability.DDoS",
         "spam": "Abusive.Spam",
         "scanner": "Recon.Scanning",
-        "dropzone": "Information.UnauthorizedAccess",
-        "malware": "Malware",
-        "botnet drone": "Malware",
-        "ransomware": "Malware",
-        "malware configuration": "Malware",
-        "c&c": "Intrusion.Botnet",
+        "infected-system": "Malware",
+        "malware-configuration": "Malware",
+        "c2-server": "Intrusion.Botnet",
         "exploit": "Attempt.Exploit",
         "brute-force": "Attempt.Login",
-        "ids alert": "Attempt.Exploit",
-        "defacement": "Intrusion.AppCompromise",
-        "compromised": "Intrusion.AdminCompromise",
-        "backdoor": "Intrusion.AdminCompromise",
-        "vulnerable service": "Vulnerable.Open",
+        "ids-alert": "Attempt.Exploit",
+        "system-compromise": "Intrusion.AdminCompromise",
         "blacklist": "Other",
-        "dga domain": "Anomaly.Behaviour",
+        "dga-domain": "Anomaly.Behaviour",
         "proxy": "Vulnerable.Config",
-        "leak": "Information",
+        "data-leak": "Information",
         "tor": "Other",
         "other": "Other",
-        "unknown": "Other",
+        "undetermined": "Other",
         "test": "Test",
-        "unauthorized-command": "Intrusion.AdminCompromise",
-        "unauthorized-login": "Intrusion.AdminCompromise",
+        "violence": "Abusive.Violence",
+        "data-loss": "Information",
+        "burglary": "Intrusion",
+        "weak-crypto": "Vulnerable.Config",
+        "unauthorised-information-access": "Information.UnauthorizedAccess",
+        "privileged-account-compromise": "Intrusion.AdminCompromise",
+        "potentially-unwanted-accessible": "Vulnerable.Open",
+        "application-compromise": "Intrusion.AppCompromise",
+        "unauthorized-use-of-resources": "Fraud.UnauthorizedUsage",
+        "masquerade": "Fraud.Scam",
+        "harmful-speech": "Abusive.Harassment",
+        "unprivileged-account-compromise": "Intrusion.UserCompromise",
+        "social-engineering": "Recon.SocialEngineering",
+        "dos": "Availability.DoS",
+        "information-disclosure": "Information.UnauthorizedAccess",
+        "sniffing": "Recon.Sniffing",
+        "vulnerable-system": "Vulnerable.Config",
+        "unauthorised-information-modification": "Information.UnauthorizedModification",
+        "sabotage": "Availability.Sabotage",
+        "malware-distribution": "Malware",
+        "outage": "Availability.Outage",
+        "ddos-amplifier": "Intrusion.Botnet",
+        "copyright": "Fraud.Copyright",
+        "misconfiguration": "Availability.Outage",  # outage includes human error
+        "malware": "Malware",
     }
 
-    type_to_source_type = {
+    TYPE_TO_SOURCE_TYPE = {
         # Added nonstandard Dropzone, MalwareConf, DGA, will consider adding to Idea spec
 
         "phishing": "Phishing",
-        "dropzone": "Dropzone",
-        "botnet drone": "Botnet",
-        "malware configuration": "MalwareConf",
-        "c&c": "CC",
-        "dga domain": "DGA",
+        "malware-configuration": "MalwareConf",
+        "c2-server": "CC",
+        "dga-domain": "DGA",
         "proxy": "Proxy",
         "tor": "Tor",
+        "malware-distribution": "Malware"
     }
 
     def init(self):
@@ -85,11 +110,11 @@ class IdeaExpertBot(Bot):
                 s["feed.name"],
                 s.get("event_description.text",
                       s.get("comment",
-                            s.get("classification.type", "unknown")))
+                            s.get("classification.type", "undetermined")))
             ),
             "Category": [
-                lambda s: self.type_to_category[s.get("classification.type", "unknown")],
-                lambda s: "Test" if self.parameters.test_mode else None
+                lambda s: self.TYPE_TO_CATEGORY[s.get("classification.type", "undetermined")],
+                lambda s: "Test" if self.test_mode else None
             ],
             "DetectTime": "time.observation",
             "EventTime": "time.source",
@@ -125,7 +150,7 @@ class IdeaExpertBot(Bot):
                 {
                     "Proto": ["protocol.transport", "protocol.application"],
                     "Type": [
-                        lambda s: self.type_to_source_type.get(s["classification.type"], None),
+                        lambda s: self.TYPE_TO_SOURCE_TYPE.get(s["classification.type"], None),
                         lambda s: s["source.tor_node"] and "Tor"
                     ],
                     "Account": ["source.account"],
@@ -174,7 +199,7 @@ class IdeaExpertBot(Bot):
                 value = self.process_dict(src, value)
         except (KeyError, IndexError):
             # Usually raised when key not present in source Event
-            # Other nasty exceptions will get catched and logged by IMQ machinery
+            # Other nasty exceptions will get caught and logged by IMQ machinery
             value = None
         return value
 

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2015 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # -*- coding: utf-8 -*-
 """
 Header of the File:
@@ -30,6 +33,7 @@ __all__ = ['SpamhausCERTParserBot']
 
 
 class SpamhausCERTParserBot(ParserBot):
+    """Parse the Spamhaus CERT feed"""
 
     def parse_line(self, row, report):
         if not len(row) or row.startswith(';'):
@@ -37,7 +41,6 @@ class SpamhausCERTParserBot(ParserBot):
         else:
             row_splitted = [field.strip() for field in row.strip().split(',')]
             event = self.new_event(report)
-            extra = {}
             event.change("feed.url", event["feed.url"].split("key=")[0])
 
             event.add('source.ip', row_splitted[0])
@@ -50,7 +53,7 @@ class SpamhausCERTParserBot(ParserBot):
 
             malware = row_splitted[4].lower()
             if malware == 'openrelay':
-                event.add('classification.type', 'vulnerable service')
+                event.add('classification.type', 'vulnerable-system')
                 event.add('classification.identifier', 'openrelay')
                 event.add('protocol.application', 'smtp')
             elif malware == 'sshauth':
@@ -92,7 +95,7 @@ class SpamhausCERTParserBot(ParserBot):
                 event.add('malware.name', malware_name)
                 event.add('malware.version', malware_version)
                 event.add('source.url', row_splitted[6])
-                extra['spam_ip'] = ip
+                event.add('extra.spam_ip', ip)
             elif malware in ['pop', 'imap']:
                 event.add('classification.type', 'brute-force')
                 event.add('classification.identifier', malware)
@@ -106,31 +109,53 @@ class SpamhausCERTParserBot(ParserBot):
             elif malware == 'proxyget':
                 event.add('classification.type', 'other')
                 event.add('classification.identifier', malware)
-                event.add('event_description.text', 'The malicous client used a honeypot as proxy.')
+                event.add('event_description.text', 'The malicious client used a honeypot as proxy.')
             elif malware == 'iotlogin':
-                event.add('classification.type', 'unauthorized-login')
+                event.add('classification.type', 'system-compromise')
                 event.add('classification.identifier', 'iot')
                 event.add('event_description.text', 'The infected iot device logged in to a honeypot.')
             elif malware == 'iotcmd':
-                event.add('classification.type', 'unauthorized-command')
+                event.add('classification.type', 'system-compromise')
                 event.add('classification.identifier', 'iot')
-                event.add('event_description.text', 'The infected iot device logged in to a honeypot and issued malicous commands.')
+                event.add('event_description.text', 'The infected iot device logged in to a honeypot and issued malicious commands.')
             elif malware == 'iotmirai':
-                event.add('classification.type', 'botnet drone')
+                event.add('classification.type', 'infected-system')
                 event.add('classification.identifier', 'mirai')
                 event.add('malware.name', 'mirai')
             elif malware == 'ioturl':
-                event.add('classification.type', 'c&c')
+                event.add('classification.type', 'c2-server')
                 event.add('classification.identifier', 'malware-generic')
             elif malware == 'automatedtest':
                 event.add('classification.type', 'brute-force')
                 event.add('classification.identifier', 'lookup-captcha')
                 event.add('event_description.text', 'The device automatically brute-forced the Spamhaus CBL lookup.')
+            elif malware == 'authspoofbadehlo':
+                event.add('classification.type', 'brute-force')
+                event.add('classification.identifier', 'authentication-spoof')
+                event.add('protocol.application', 'smtp')
+                event.add('event_description.text', 'The device spoofed SMTP authentication with a bad EHLO.')
+            elif malware == 'extortion':
+                event.add('classification.type', 'spam')
+                event.add('classification.identifier', 'extortion')
+                if row_splitted[7] == '25':
+                    event.add('protocol.application', 'smtp')
+                event.add('event_description.text', 'This device sent extortion mails.')
+            elif malware == 'misc':
+                # According to info from abuseat.org
+                # exact malware is not known, but it is known to be a botnet
+                event.add('classification.type', 'spam')
+                event.add('classification.identifier', 'spam')
+                if row_splitted[7] == '25':
+                    event.add('protocol.application', 'smtp')
+                event.add('event_description.text', 'This device is sending spam as part of a botnet. '
+                                                    'See abuseat.org for more details.')
+                event.add('event_description.url', 'https://www.abuseat.org/lookup.cgi')
+                event.add('feed.documentation', 'https://www.abuseat.org/lookup.cgi', overwrite=False)
             else:
                 if malware == 'auto':
                     malware = 's_other'
                 event.add('malware.name', malware)
-                event.add('classification.type', 'botnet drone')
+                event.add('classification.type', 'infected-system')
                 event.add('source.url', row_splitted[5], raise_failure=False)
 
             # otherwise the same ip, ignore
@@ -140,9 +165,7 @@ class SpamhausCERTParserBot(ParserBot):
             event.add('destination.ip', row_splitted[6], raise_failure=False)
             event.add('destination.port', row_splitted[7], raise_failure=False)
             if row_splitted[8] and row_splitted[8] not in ('-', '?') and malware != 'l_spamlink':
-                extra['source.local_port'] = int(row_splitted[8])
-            if extra:
-                event.add('extra', extra)
+                event.add('extra.source.local_port', int(row_splitted[8]))
             event.add('protocol.transport', row_splitted[9], raise_failure=False)
             event.add('raw', self.recover_line(row))
 

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2016 pedromreis
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 import socket
 import unicodedata
@@ -6,19 +10,25 @@ import intelmq.lib.utils as utils
 from intelmq.lib.bot import Bot
 
 
-class UDPBot(Bot):
+class UDPOutputBot(Bot):
+    """Send events to a UDP server, e.g. a syslog daemon"""
+    field_delimiter: str = "|"
+    format: str = None
+    header: str = "<header text>"
+    keep_raw_field: bool = False
+    udp_host: str = "localhost"
+    udp_port: int = None
+
+    __is_multithreadable = False
 
     def init(self):
-        self.delimiter = self.parameters.field_delimiter
-        self.header = self.parameters.header
-        self.udp_host = socket.gethostbyname(self.parameters.udp_host)
-        self.upd_address = (self.udp_host, self.parameters.udp_port)
+        self.delimiter = self.field_delimiter
+        self.udp_host = socket.gethostbyname(self.udp_host)
+        self.upd_address = (self.udp_host, self.udp_port)
         self.udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.keep_raw_field = bool(self.parameters.keep_raw_field)
-        self.format = self.parameters.format.lower()
+        self.format = self.format.lower()
         if self.format not in ['json', 'delimited']:
-            self.logger.error('Unknown format %r given. Check your configuration.', self.format)
-            self.stop()
+            raise ValueError('Unknown format %r given. Check your configuration.' % self.format)
 
     def process(self):
         event = self.receive_message()
@@ -52,4 +62,4 @@ class UDPBot(Bot):
             self.acknowledge_message()
 
 
-BOT = UDPBot
+BOT = UDPOutputBot

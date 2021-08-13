@@ -1,6 +1,10 @@
-from xml.etree import ElementTree
+# SPDX-FileCopyrightText: 2016 Sebastian Wagner
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
 from collections import OrderedDict
+from datetime import datetime
+from xml.etree import ElementTree
 
 from intelmq.lib import utils
 from intelmq.lib.bot import ParserBot
@@ -9,8 +13,8 @@ from intelmq.lib.exceptions import ConfigurationError
 PHISHING = OrderedDict([
     ("line", "__IGNORE__"),
     ("id", "extra"),
-    ("first", "__IGNORE__"),
-    ("firsttime", "time.source"),
+    ("first", "time.source"),
+    ("firsttime", "__IGNORE__"),
     ("last", "__IGNORE__"),
     ("lasttime", "__IGNORE__"),
     ("phishtank", "extra"),
@@ -37,8 +41,8 @@ VIRUS = OrderedDict([
     ("line", "__IGNORE__"),
     ("id", "extra"),
     ("sub", "extra"),
-    ("first", "__IGNORE__"),
-    ("firsttime", "time.source"),
+    ("first", "time.source"),
+    ("firsttime", "__IGNORE__"),
     ("last", "__IGNORE__"),
     ("lasttime", "__IGNORE__"),
     ("scanner", "extra"),
@@ -69,6 +73,7 @@ VIRUS = OrderedDict([
 
 
 class CleanMXParserBot(ParserBot):
+    """Parse the CleanMX feeds"""
 
     def get_mapping_and_type(self, url):
 
@@ -76,7 +81,7 @@ class CleanMXParserBot(ParserBot):
             return PHISHING, 'phishing'
 
         elif 'xmlviruses' in url:
-            return VIRUS, 'malware'
+            return VIRUS, 'malware-distribution'
 
         else:
             raise ValueError('Unknown report.')
@@ -134,7 +139,13 @@ class CleanMXParserBot(ParserBot):
                     continue
 
                 if key == "time.source":
-                    value = value + " UTC"
+                    try:
+                        value = (datetime.utcfromtimestamp(int(value)).isoformat() + " UTC")
+                    except TypeError as e:
+                        self.logger.warning(
+                            'No valid "first" field epoch time found, skipping '
+                            'timestamp. Got {} {}'.format(value, e))
+                        continue
 
                 if key == "source.asn":
                     if value.upper().startswith("ASNA"):
@@ -161,7 +172,7 @@ class CleanMXParserBot(ParserBot):
 
             event.add('classification.type', ctype)
             event.add("raw", entry_str)
-            yield event
+            return event
 
 
 BOT = CleanMXParserBot

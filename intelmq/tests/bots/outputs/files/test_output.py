@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2017 Pavel Kácha
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 import os
 import tempfile
@@ -20,7 +24,7 @@ class TestFilesOutputBot(test.BotTestCase, unittest.TestCase):
         cls.tmp_path = pth.join(cls.base_dir.name, "incoming")
 
     def setUp(self):
-        self.test_output = '{"asdf":"ghjk"}'
+        self.test_output = json.dumps({"asdf": "ghjk"})
         self.input_message = {"__type": "Event", "output": self.test_output}
 
     def tearDown(self):
