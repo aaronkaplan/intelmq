@@ -53,7 +53,7 @@ __all__ = ['Base64', 'Boolean', 'ClassificationType', 'DateTime', 'FQDN',
            ]
 
 
-class GenericType(object):
+class GenericType:
 
     @staticmethod
     def is_valid(value: str, sanitize: bool = False) -> bool:
@@ -270,12 +270,13 @@ class ClassificationType(String):
     Allowed values are:
      * """
 
-    allowed_values = ['application-compromise',
+    allowed_values = ('application-compromise',
                       'blacklist',
                       'brute-force',
                       'burglary',
                       'c2-server',
                       'copyright',
+                      'data-leak',
                       'data-loss',
                       'ddos',
                       'ddos-amplifier',
@@ -286,7 +287,6 @@ class ClassificationType(String):
                       'ids-alert',
                       'infected-system',
                       'information-disclosure',
-                      'data-leak',
                       'malware',
                       'malware-configuration',
                       'malware-distribution',
@@ -308,14 +308,13 @@ class ClassificationType(String):
                       'tor',
                       'unauthorised-information-access',
                       'unauthorised-information-modification',
-                      'system-compromise',
                       'unauthorized-use-of-resources',
+                      'undetermined',
                       'unprivileged-account-compromise',
                       'violence',
                       'vulnerable-system',
                       'weak-crypto',
-                      'undetermined',
-                      ]
+                      )
 
     __doc__ += '\n     * '.join(allowed_values)
 
@@ -857,10 +856,10 @@ class IPAddress(String):
     def to_int(value: str) -> Optional[int]:
         try:
             ip_integer = socket.inet_pton(socket.AF_INET, value)
-        except socket.error:
+        except OSError:
             try:
                 ip_integer = socket.inet_pton(socket.AF_INET6, value)
-            except socket.error:
+            except OSError:
                 return None
 
         ip_integer = int(binascii.hexlify(ip_integer), 16)
@@ -1160,7 +1159,7 @@ class TLP(UppercaseString):
     Accepted for sanitation are different cases and the prefix 'tlp:'.
     """
     enum = ['WHITE', 'GREEN', 'AMBER', 'RED']
-    prefix_pattern = re.compile(r'^(TLP:?)?\s*', flags=re.IGNORECASE)
+    prefix_pattern = re.compile(r'^(TLP:?)?\s*')
 
     @staticmethod
     def is_valid(value: str, sanitize: bool = False) -> bool:
@@ -1180,6 +1179,6 @@ class TLP(UppercaseString):
         value = UppercaseString.sanitize(value)
         if value:
             value = TLP.prefix_pattern.sub('', value)
-            if value.lower() == 'yellow':
+            if value == 'YELLOW':
                 value = 'AMBER'
             return value

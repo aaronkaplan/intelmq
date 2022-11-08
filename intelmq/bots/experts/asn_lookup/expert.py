@@ -11,7 +11,7 @@ import bz2
 import pathlib
 import requests
 
-from intelmq.lib.bot import Bot
+from intelmq.lib.bot import ExpertBot
 from intelmq.lib.exceptions import MissingDependencyError
 from intelmq.lib.utils import get_bots_settings, create_request_session
 from intelmq.bin.intelmqctl import IntelMQController
@@ -23,9 +23,10 @@ except ImportError:
     pyasn = None
 
 
-class ASNLookupExpertBot(Bot):
+class ASNLookupExpertBot(ExpertBot):
     """Add ASN and netmask information from a local BGP dump"""
     database = None  # TODO: should be pathlib.Path
+    autoupdate_cached_database: bool = True  # Activate/deactivate update-database functionality
 
     def init(self):
         if pyasn is None:
@@ -33,7 +34,7 @@ class ASNLookupExpertBot(Bot):
 
         try:
             self._database = pyasn.pyasn(self.database)
-        except IOError:
+        except OSError:
             self.logger.error("pyasn data file does not exist or could not be "
                               "accessed in %r.", self.database)
             self.logger.error("Read 'bots/experts/asn_lookup/README' and "
@@ -78,7 +79,7 @@ class ASNLookupExpertBot(Bot):
             parsed_args = cls._create_argparser().parse_args()
 
         if parsed_args.update_database:
-            cls.update_database()
+            cls.update_database(verbose=parsed_args.verbose)
 
         else:
             super().run(parsed_args=parsed_args)
@@ -87,22 +88,24 @@ class ASNLookupExpertBot(Bot):
     def _create_argparser(cls):
         argparser = super()._create_argparser()
         argparser.add_argument("--update-database", action='store_true', help='downloads latest database data')
+        argparser.add_argument("--verbose", action='store_true', help='be verbose')
         return argparser
 
     @classmethod
-    def update_database(cls):
+    def update_database(cls, verbose=False):
         bots = {}
         runtime_conf = get_bots_settings()
         try:
             for bot in runtime_conf:
-                if runtime_conf[bot]["module"] == __name__:
+                if runtime_conf[bot]["module"] == __name__ and runtime_conf[bot]['parameters'].get('autoupdate_cached_database', True):
                     bots[bot] = runtime_conf[bot]["parameters"]["database"]
 
         except KeyError as e:
-            sys.exit("Database update failed. Your configuration of {0} is missing key {1}.".format(bot, e))
+            sys.exit(f"Database update failed. Your configuration of {bot} is missing key {e}.")
 
         if not bots:
-            print("Database update skipped. No bots of type {0} present in runtime.conf.".format(__name__))
+            if verbose:
+                print(f"Database update skipped. No bots of type {__name__} present in runtime.conf or database update disabled with parameter 'autoupdate_cached_database'.")
             sys.exit(0)
 
         # we only need to import now. If there are no asn_lookup bots, this dependency does not need to be installed
@@ -110,10 +113,11 @@ class ASNLookupExpertBot(Bot):
             raise MissingDependencyError("pyasn")
 
         try:
-            print("Searching for the latest database update...")
+            if verbose:
+                print("Searching for the latest database update...")
             session = create_request_session()
-            url = "http://archive.routeviews.org/route-views4/bgpdata/"
-            response = session.get(url)
+            base_url = "http://archive.routeviews.org/route-views4/bgpdata/"
+            response = session.get(base_url)
             pattern = re.compile(r"href=\"(\d{4}\.\d{2})/\"")
             months = pattern.findall(response.text)
             months.sort(reverse=True)
@@ -121,28 +125,36 @@ class ASNLookupExpertBot(Bot):
             if not months:
                 sys.exit("Database update failed. Couldn't find the latest database update.")
 
-            url += str(months[0]) + "/RIBS/"
-            response = session.get(url)
-            pattern = re.compile(r"href=\"(rib\.\d{8}\.\d{4}\.bz2)\"")
-            days = pattern.findall(response.text)
-            days.sort(reverse=True)
+            # routeviews website creates next month's directory on 28th of the current month
+            # therefore on 28th, 29th, 30th, 31st it's necessary to find the second highest month directory
+            for i in range(2):
+                url = base_url + str(months[i]) + "/RIBS/"
+                response = session.get(url)
+                pattern = re.compile(r"href=\"(rib\.\d{8}\.\d{4}\.bz2)\"")
+                days = pattern.findall(response.text)
+                days.sort(reverse=True)
+                print(url)
+                if days:
+                    break
 
             if not days:
                 sys.exit("Database update failed. Couldn't find the latest database update.")
 
-            print("Downloading the latest database update...")
+            if verbose:
+                print("Downloading the latest database update...")
             url += days[0]
             response = session.get(url)
 
             if response.status_code != 200:
-                sys.exit("Database update failed. Server responded: {0}.\n"
-                         "URL: {1}".format(response.status_code, response.url))
+                sys.exit("Database update failed. Server responded: {}.\n"
+                         "URL: {}".format(response.status_code, response.url))
 
         except requests.exceptions.RequestException as e:
-            sys.exit("Database update failed. Connection Error: {0}".format(e))
+            sys.exit(f"Database update failed. Connection Error: {e}")
 
         with bz2.open(io.BytesIO(response.content)) as archive:
-            print("Parsing the latest database update...")
+            if verbose:
+                print("Parsing the latest database update...")
             prefixes = pyasn.mrtx.parse_mrt_file(archive, print_progress=False, skip_record_on_error=True)
 
         for database_path in set(bots.values()):
@@ -150,7 +162,8 @@ class ASNLookupExpertBot(Bot):
             database_dir.mkdir(parents=True, exist_ok=True)
             pyasn.mrtx.dump_prefixes_to_file(prefixes, database_path)
 
-        print("Database updated. Reloading affected bots.")
+        if verbose:
+            print("Database updated. Reloading affected bots.")
 
         ctl = IntelMQController()
         for bot in bots.keys():

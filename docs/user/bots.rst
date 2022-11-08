@@ -314,6 +314,7 @@ Generic Mail Attachment Fetcher
 * `ssl_ca_certificate`: Optional string of path to trusted CA certificate. Applies only to IMAP connections, not HTTP. If the provided certificate is not found, the IMAP connection will fail on handshake. By default, no certificate is used.
 
 The resulting reports contains the following special fields:
+
 * `extra.email_date`: The content of the email's `Date` header
 * `extra.email_subject`: The subject of the email
 * `extra.email_from`: The email's from address
@@ -353,6 +354,7 @@ Generic Mail Body Fetcher
   - `string`, e.g. `'plain'`
 
 The resulting reports contains the following special fields:
+
 * `extra.email_date`: The content of the email's `Date` header
 * `extra.email_subject`: The subject of the email
 * `extra.email_from`: The email's from address
@@ -376,8 +378,7 @@ Github API
 **Configuration Parameters**
 
 * **Feed parameters** (see above)
-* `basic_auth_username:` GitHub account username (optional)
-* `basic_auth_password:` GitHub account password (optional)
+* `personal_access_token:` GitHub account personal access token [GitHub documentation: Creating a personal access token](https://developer.github.com/changes/2020-02-14-deprecating-password-auth/#removal)
 * `repository:` GitHub target repository (`<USER>/<REPOSITORY>`)
 * `regex:` Valid regular expression of target files within the repository (defaults to `.*.json`)
 * `extra_fields:` Comma-separated list of extra fields from `GitHub contents API <https://developer.github.com/v3/repos/contents/>`_.
@@ -500,29 +501,6 @@ Requires the `kafka python library <https://pypi.org/project/kafka/>`_.
 * `ssl_ca_certificate`: Optional string of path to trusted CA certificate. Only used by some bots.
 
 
-.. _intelmq.bots.collectors.rsync.collector_rsync:
-
-Rsync
-^^^^^
-
-Requires the rsync executable
-
-**Information**
-
-* `name:` intelmq.bots.collectors.rsync.collector_rsync
-* `lookup:` yes
-* `public:` yes
-* `cache (redis db):` none
-* `description:` Bot download file by rsync and then load data from downloaded file. Downloaded file is located in `var/lib/bots/rsync_collector.`
-
-**Configuration Parameters**
-
-* **Feed parameters** (see above)
-* `file`: Name of downloaded file.
-* `rsync_path`: Path to file. It can be "/home/username/directory" or "username@remote_host:/home/username/directory"
-* `temp_directory`: Path of a temporary state directory to use for rsync'd files. Optional. Default: `/opt/intelmq/var/run/rsync_collector/`.
-
-
 .. _intelmq.bots.collectors.misp.collector:
 
 MISP Generic
@@ -545,6 +523,7 @@ MISP Generic
 * `misp_tag_processed`: MISP tag for processed events, optional
 
 Generic parameters used in this bot:
+
 * `http_verify_cert`: Verify the TLS certificate of the server, boolean (default: `true`)
 
 **Workflow**
@@ -642,21 +621,23 @@ Relative must be in this format: `[number] [timespan]s`, e.g. `3 days`. `timespa
 Rsync
 ^^^^^
 
-**Information**
+Requires the rsync executable
 
+**Information**
 
 * `name:` intelmq.bots.collectors.rsync.collector_rsync
 * `lookup:` yes
 * `public:` yes
 * `cache (redis db):` none
-* `description:` Syncs a file via rsync and reads the file.
+* `description:` Bot downloads a file by rsync and then load data from downloaded file. Downloaded file is located in `var/lib/bots/rsync_collector.`
 
 **Configuration Parameters**
 
 * **Feed parameters** (see above)
-* `file`: The filename to process, combine with `rsync_path`.
-* `temp_directory`: The temporary directory for rsync, by default `$VAR_STATE_PATH/rsync_collector`. `$VAR_STATE_PATH` is `/var/run/intelmq/` or `/opt/intelmq/var/run/`.
-* `rsync_path`: The path of the file to process
+* `file`: Name of downloaded file.
+* `file`: The filename to process, combined with `rsync_path`.
+* `rsync_path`: Path to file. It can be "/home/username/directory" or "username@remote_host:/home/username/directory"
+* `temp_directory`: The temporary directory for rsync to use for rsync'd files. Optional. Default: `$VAR_STATE_PATH/rsync_collector`. `$VAR_STATE_PATH` is `/var/run/intelmq/` or `/opt/intelmq/var/run/`.
 
 
 .. _intelmq.bots.collectors.shadowserver.collector_reports_api:
@@ -673,9 +654,10 @@ The Cache is required to memorize which files have already been processed (TTL n
 
 **Configuration Parameters**
 
-* `country`: The country you want to download the reports for
+* `country`: **Deprecated:** The country you want to download the reports for. Will be removed in IntelMQ version 4.0.0, use *reports* instead.
 * `apikey`: Your Shadowserver API key
 * `secret`: Your Shadowserver API secret
+* `reports`: A list of strings or a comma-separated list of the mailing lists you want to process.
 * `types`: A list of strings or a string of comma-separated values with the names of report types you want to process. If you leave this empty, all the available reports will be downloaded and processed (i.e. 'scan', 'drones', 'intel', 'sandbox_connection', 'sinkhole_combined'). The possible report types are equivalent to the file names given in the section :ref:`Supported Reports <shadowserver-supported-reports>` of the Shadowserver parser.
 * **Cache parameters** (see in section :ref:`common-parameters`, the default TTL is set to 10 days)
 
@@ -1461,6 +1443,12 @@ Microsoft CTIP Parser
 * `cache (redis db)`: none
 * `description`: Parses data from the Microsoft CTIP Feed
 
+ * `overwrite`: If an existing `feed.name` should be overwritten (only relevant for the azure data source).
+
+**Configuration Parameters**
+
+* ``overwrite``: Overwrite an existing field ``feed.name`` with ``DataFeed`` of the source.
+
 **Description**
 
 Can parse the JSON format provided by the Interflow interface (lists of dictionaries) as well as the format provided by the Azure interface (one dictionary per line).
@@ -1599,6 +1587,7 @@ These are the supported feed name and their corresponding file name for automati
   =======================================   =========================
    Accessible-ADB                            `scan_adb`
    Accessible-AFP                            `scan_afp`
+   Accessible-AMQP                           `scan_amqp`
    Accessible-ARD                            `scan_ard`
    Accessible-Cisco-Smart-Install            `cisco_smart_install`
    Accessible-CoAP                           `scan_coap`
@@ -1617,13 +1606,17 @@ These are the supported feed name and their corresponding file name for automati
    Blacklisted-IP (deprecated)               `blacklist`
    Blocklist                                 `blocklist`
    Compromised-Website                       `compromised_website`
+   Device-Identification IPv4 / IPv6         `device_id`/`device_id6`
    DNS-Open-Resolvers                        `scan_dns`
    Honeypot-Amplification-DDoS-Events        `event4_honeypot_ddos_amp`
    Honeypot-Brute-Force-Events               `event4_honeypot_brute_force`
    Honeypot-Darknet                          `event4_honeypot_darknet`
+   Honeypot-HTTP-Scan                        `event4_honeypot_http_scan`
    HTTP-Scanners                             `hp_http_scan`
    ICS-Scanners                              `hp_ics_scan`
    IP-Spoofer-Events                         `event4_ip_spoofer`
+   Microsoft-Sinkhole-Events IPv4            `event4_microsoft_sinkhole`
+   Microsoft-Sinkhole-Events-HTTP IPv4       `event4_microsoft_sinkhole_http`
    NTP-Monitor                               `scan_ntpmonitor`
    NTP-Version                               `scan_ntp`
    Open-Chargen                              `scan_chargen`
@@ -1653,14 +1646,21 @@ These are the supported feed name and their corresponding file name for automati
    Sandbox-URL                               `cwsandbox_url`
    Sinkhole-DNS                              `sinkhole_dns`
    Sinkhole-Events                           `event4_sinkhole`/`event6_sinkhole`
+   Sinkhole-Events IPv4                      `event4_sinkhole`
+   Sinkhole-Events IPv6                      `event6_sinkhole`
    Sinkhole-HTTP-Events                      `event4_sinkhole_http`/`event6_sinkhole_http`
+   Sinkhole-HTTP-Events IPv4                 `event4_sinkhole_http`
+   Sinkhole-HTTP-Events IPv6                 `event6_sinkhole_http`
    Sinkhole-Events-HTTP-Referer              `event4_sinkhole_http_referer`/`event6_sinkhole_http_referer`
+   Sinkhole-Events-HTTP-Referer IPv4         `event4_sinkhole_http_referer`
+   Sinkhole-Events-HTTP-Referer IPv6         `event6_sinkhole_http_referer`
    Spam-URL                                  `spam_url`
    SSL-FREAK-Vulnerable-Servers              `scan_ssl_freak`
-   SSL-POODLE-Vulnerable-Servers             `scan_ssl_poodle`
+   SSL-POODLE-Vulnerable-Servers             `scan_ssl_poodle`/`scan6_ssl_poodle`
    Vulnerable-Exchange-Server `*`            `scan_exchange`
    Vulnerable-ISAKMP                         `scan_isakmp`
    Vulnerable-HTTP                           `scan_http`
+   Vulnerable-SMTP                           `scan_smtp_vulnerable`
   =======================================   =========================
 
 `*` This report can also contain data on active webshells (column `tag` is `exchange;webshell`), and are therefore not only vulnerable but also actively infected.
@@ -1788,6 +1788,7 @@ Aggregate
 **Configuration Parameters**
 
 * **Cache parameters** (see in section :ref:`common-parameters`)
+
   * TTL is not used, using it would result in data loss.
 * **fields** Given fields which are used to aggregate like `classification.type, classification.identifier`
 * **threshold** If the aggregated event is lower than the given threshold after the timespan, the event will get dropped.
@@ -1897,7 +1898,30 @@ Public documentation: https://www.team-cymru.com/IP-ASN-mapping.html#dns
 **Configuration Parameters**
 
 * **Cache parameters** (see in section :ref:`common-parameters`)
-* `overwrite`: Overwrite existing fields. Default: `True` if not given (for backwards compatibility, will change in version 3.0.0)
+* ``: Overwrite existing fields. Default: `True` if not given (for backwards compatibility, will change in version 3.0.0)
+
+
+.. _intelmq.bots.experts.remove_affix.expert:
+
+RemoveAffix
+^^^^^^^^^^^
+
+**Information**
+
+* `name:` `intelmq.bots.experts.remove_affix.expert`
+* `lookup:` none
+* `public:` yes
+* `cache (redis db):` none
+* `description:` Cut string from string
+
+**Configuration Parameters**
+
+* `remove_prefix`: True - cut from start, False - cut from end
+* `affix`: example 'www.'
+* `field`: example field 'source.fqdn'
+
+**Description**
+Remove part of string from string, example: `www.` from domains.
 
 
 .. _intelmq.bots.experts.domain_suffix.expert:
@@ -1968,6 +1992,33 @@ Use this command to create/update the database and reload the bot:
    intelmq.bots.experts.domain_suffix.expert --update-database
 
 
+.. _intelmq.bots.experts.domain_valid.expert:
+
+Domain valid
+^^^^^^^^^^^^
+
+**Information**
+
+* `name:` `intelmq.bots.experts.domain_valid.expert`
+* `lookup:` no
+* `public:` yes
+* `cache (redis db):` none
+* `description:` Checks if a domain is valid by performing multiple validity checks (see below).
+
+**Configuration Parameters**
+
+   * `domain_field`: The name of the field to be validated.
+   * `tlds_domains_list`: local file with all valid TLDs, default location ``/opt/intelmq/var/lib/bots/domain_valid/tlds-alpha-by-domain.txt``
+
+**Description**
+
+If the field given in `domain_field` does not exist in the event, the event is dropped.
+If the domain contains underscores (``_``), the event is dropped.
+If the domain is not valid according to the `validators library <https://pypi.org/project/validators/>`_, the event is dropped.
+If the domain's last part (the TLD) is not in the TLD-list configured by parameter ``tlds_domains_list``, the field is dropped.
+Latest TLD list: https://data.iana.org/TLD/
+
+
 .. _intelmq.bots.experts.deduplicator.expert:
 
 Deduplicator
@@ -1989,9 +2040,15 @@ Deduplicator
 **Parameters for "fine-grained" deduplication**
 
 * `filter_type`: type of the filtering which can be "blacklist" or "whitelist". The filter type will be used to define how Deduplicator bot will interpret the parameter `filter_keys` in order to decide whether an event has already been seen or not, i.e., duplicated event or a completely new event.
+
   * "whitelist" configuration: only the keys listed in `filter_keys` will be considered to verify if an event is duplicated or not.
   * "blacklist" configuration: all keys except those in `filter_keys` will be considered to verify if an event is duplicated or not.
 * `filter_keys`: string with multiple keys separated by comma. Please note that `time.observation` key will not be considered even if defined, because the system always ignore that key.
+
+When using a whitelist field pattern and a small number of fields (keys), it becomes more important, that these fields exist in the events themselves.
+If a field does not exist, but is part of the hashing/deduplication, this field will be ignored.
+If such events should not get deduplicated, you need to filter them out before the deduplication process, e.g. using a sieve expert.
+See also `this discussion thread <https://lists.cert.at/pipermail/intelmq-users/2021-July/000370.html>`_ on the mailing-list.
 
 **Parameters Configuration Example**
 
@@ -2049,6 +2106,7 @@ DO Portal Expert Bot
 * `description:` The DO portal retrieves the contact information from a DO portal instance: http://github.com/certat/do-portal/
 
 **Configuration Parameters**
+
 * `mode` - Either `replace` or `append` the new abuse contacts in case there are existing ones.
 * `portal_url` - The URL to the portal, without the API-path. The used URL is `$portal_url + '/api/1.0/ripe/contact?cidr=%s'`.
 * `portal_api_key` - The API key of the user to be used. Must have sufficient privileges.
@@ -2068,6 +2126,7 @@ Field Reducer Bot
 * `description:` The field reducer bot is capable of removing fields from events.
 
 **Configuration Parameters**
+
 * `type` - either `"whitelist"` or `"blacklist"`
 * `keys` - Can be a JSON-list of field names (`["raw", "source.account"]`) or a string with a comma-separated list of field names (`"raw,source.account"`).
 
@@ -2093,17 +2152,18 @@ The filter bot is capable of filtering specific events.
 * `lookup:` none
 * `public:` yes
 * `cache (redis db):` none
-* `description:` filter messages (drop or pass messages) FIXME
+* `description:` A simple filter for messages (drop or pass) based on a exact string comparison or regular expression
 
 **Configuration Parameters**
 
 *Parameters for filtering with key/value attributes*
 
-* `filter_key` - key from data format
-* `filter_value` - value for the key
-* `filter_action` - action when a message match to the criteria (possible actions: keep/drop)
-* `filter_regex` - attribute determines if the `filter_value` shall be treated as regular expression or not.
-   If this attribute is not empty, the bot uses python's "search" function to evaluate the filter.
+* ``filter_key`` - key from data format
+* ``filter_value`` - value for the key
+* ``filter_action`` - action when a message match to the criteria (possible actions: keep/drop)
+* ``filter_regex`` - attribute determines if the ``filter_value`` shall be treated as regular expression or not.
+   If this attribute is not empty (can be ``true``, ``yes`` or whatever), the bot uses python's ```re.search`` <https://docs.python.org/3/library/re.html#re.search>`_ function to evaluate the filter with regular expressions.
+   If this attribute is empty or evaluates to false, an exact string comparison is performed. A check on string *inequality* can be achieved with the usage of *Paths* described below.
 
 *Parameters for time based filtering*
 
@@ -2175,17 +2235,19 @@ Format Field
 
    .. code-block:: json
 
-   "columns": "malware.name,extra.tags"
+      "columns": "malware.name,extra.tags"
 
-* `strip_chars` -  a set of characters to remove as leading/trailing characters(default: ` ` or whitespace)
+* `strip_chars` -  a set of characters to remove as leading/trailing characters(default: space)
 
 *Parameters for replacing chars*
+
 * `replace_column` - key from data format
 * `old_value` - the string to search for
 * `new_value` - the string to replace the old value with
 * `replace_count` - number specifying how many occurrences of the old value you want to replace(default: `1`)
 
 *Parameters for splitting string to list of string*
+
 * `split_column` - key from data format
 * `split_separator` - specifies the separator to use when splitting the string(default: `,`)
 
@@ -2335,6 +2397,33 @@ Documentation about IDEA: https://idea.cesnet.cz/en/index
 * `test_mode`: add `Test` category to mark all outgoing IDEA events as informal (meant to simplify setting up and debugging new IDEA producers) (default: `true`)
 
 
+.. _intelmq.bots.experts.jinja.expert:
+
+Jinja2 Template Expert
+^^^^^^^^^^^^^^^^^^^^^^
+
+This bot lets you modify the content of your IntelMQ message fields using Jinja2 templates.
+
+Documentation about Jinja2 templating language: https://jinja.palletsprojects.com/
+
+**Information**
+
+* `name:` intelmq.bots.experts.jinja.expert
+* `description:` Modify the content of IntelMQ messages using jinja2 templates
+
+**Configuration Parameters**
+
+* `fields`: a dict containing as key the name of the field where the result of the Jinja2 template should be written to and as value either a Jinja2 template or a filepath to a Jinja2 template file (starting with ``file:///``). Because the experts decides if it is a filepath based on the value starting with ``file:///`` it is not possible to simply write values starting with ``file:///`` to fields.
+  The object containing the existing message will be passed to the Jinja2 template with the name ``msg``.
+
+  .. code-block:: yaml
+
+     fields:
+       output: The provider is {{ msg['feed.provider'] }}!
+       feed.url: "{{ msg['feed.url'] | upper }}"
+       extra.somejinjaoutput: file:///etc/intelmq/somejinjatemplate.j2
+
+
 .. _intelmq.bots.experts.lookyloo.expert:
 
 Lookyloo
@@ -2420,30 +2509,6 @@ Generic parameters used in this bot:
 
 .. _intelmq.bots.experts.mcafee.expert_mar:
 
-McAfee Active Response Hash lookup
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-**Information**
-
-* `name:` intelmq.bots.experts.mcafee.expert_mar
-* `lookup:` yes
-* `public:` no
-* `cache (redis db):` none
-* `description:` Queries occurrences of hashes within local environment
-
-**Configuration Parameters**
-
-* **Feed parameters** (see above)
-* `dxl_config_file`: location of file containing required information to connect to DXL bus
-* `lookup_type`: One of:
-  - `Hash`: looks up `malware.hash.md5`, `malware.hash.sha1` and `malware.hash.sha256`
-  - `DestSocket`: looks up `destination.ip` and `destination.port`
-  - `DestIP`: looks up `destination.ip`
-  - `DestFQDN`: looks up in `destination.fqdn`
-
-
-.. _intelmq.bots.experts.mcafee.expert_mar:
-
 McAfee Active Response lookup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -2457,9 +2522,12 @@ McAfee Active Response lookup
 
 **Configuration Parameters**
 
-* **Feed parameters** (see above)
 * `dxl_config_file`: location of file containing required information to connect to DXL bus
-* `lookup_type`: One of <Hash|DestSocket|DestIP|DestFQDN>
+* `lookup_type`: One of:
+  - `Hash`: looks up `malware.hash.md5`, `malware.hash.sha1` and `malware.hash.sha256`
+  - `DestSocket`: looks up `destination.ip` and `destination.port`
+  - `DestIP`: looks up `destination.ip`
+  - `DestFQDN`: looks up in `destination.fqdn`
 
 
 .. _intelmq.bots.experts.modify.expert:
@@ -2725,6 +2793,7 @@ Sources:
 **Configuration Parameters**
 
 * `fields`: string, comma-separated list of fields e.g. `destination.ip,source.asn,source.url`. Supported fields are:
+
   * `destination.asn` & `source.asn`
   * `destination.fqdn` & `source.fqdn`
   * `destination.ip` & `source.ip`
@@ -2732,6 +2801,7 @@ Sources:
 * `policy`: string, comma-separated list of policies, e.g. `del,drop,drop`. `drop` will cause that the the entire event to be removed if the field is , `del` causes the field to be removed.
 
 With the example parameter values given above, this means that:
+
 * If a `destination.ip` value is part of a reserved network block, the field will be removed (policy "del").
 * If a `source.asn` value is in the range of reserved AS numbers, the event will be removed altogether (policy "drop).
 * If a `source.url` value contains a host with either an IP address part of a reserved network block, or a reserved domain name (or with a reserved TLD), the event will be dropped (policy "drop")
@@ -3124,8 +3194,6 @@ Threshold
 
 **Information**
 
-
-* **Cache parameters** (see section :ref:`common-parameters`)
 * `name`: `intelmq.bots.experts.threshold.expert`
 * `lookup`: redis cache
 * `public`: no
@@ -3134,9 +3202,9 @@ Threshold
 
 **Configuration Parameters**
 
+* **Cache parameters** (see section :ref:`common-parameters`), especially ``redis_cache_ttl`` as number of seconds before threshold counter is reset. Since version 3.1 (until 3.1 `timeout` was used).
 * `filter_keys`: String, comma-separated list of field names to consider or ignore when determining which messages are similar.
 * `filter_type`: String, `whitelist` (consider only the fields in `filter_keys`) or `blacklist` (consider everything but the fields in `filter_keys`).
-* `timeout`: Integer, number of seconds before threshold counter is reset.
 * `threshold`: Integer, number of messages required before propagating one. In forwarded messages, the threshold is saved in the message as `extra.count`.
 * `add_keys`: Array of string->string, optional, fields and values to add (or update) to propagated messages. Example:
 
@@ -3150,6 +3218,7 @@ Threshold
 **Limitations**
 
 This bot has certain limitations and is not a true threshold filter (yet). It works like this:
+
 1. Every incoming message is hashed according to the `filter_*` parameters.
 2. The hash is looked up in the cache and the count is incremented by 1, and the TTL of the key is (re-)set to the timeout.
 3. If the new count matches the threshold exactly, the message is forwarded. Otherwise it is dropped.
@@ -3197,7 +3266,12 @@ Trusted Introducer Lookup Expert
 
 **Configuration Parameters**
 
-* **order**: Possible values are 'domain', 'asn'
+* **order**: Possible values are 'domain', 'asn'. You can set multiple values, so first match wins.
+* If 'domain' is set, it will lookup the `source.fqdn` field. It will go from high-order to low-order, i.e. 1337.super.example.com -> super.example.com -> example.com -> `.com`
+* If 'asn' is set, it will lookup `source.asn`.
+
+After a match, the abuse contact will be fetched from the trusted introducer teams list and will be stored in the event as `source.abuse_contact`.
+If there is no match, the event will not be enriched and will be sent to the next configured step.
 
 
 .. _intelmq.bots.experts.tuency.expert:
@@ -3248,6 +3322,35 @@ For both fields *ip* and *domain*, the *destinations* objects are iterated and i
 The IntelMQ fields used by this bot may change in the next IntelMQ release, as soon as better suited fields are available.
 
 
+.. _intelmq.bots.experts.truncate_by_delimiter.expert:
+
+Truncate By Delimiter
+^^^^^^^^^^^^^^^^^^^^^
+
+**Information**
+
+* `name:` `intelmq.bots.experts.truncate_by_delimiter.expert`
+* `lookup:` no
+* `public:` yes
+* `cache (redis db):` none
+* `description:` Cut string if length is bigger than maximum length
+
+**Configuration Parameters**
+
+* `delimiter`: The delimiter to be used for truncating, for example ``.`` or ``;``
+* `max_length`: The maximum string length.
+* `field`: The field to be truncated, e.g. ``source.fqdn``
+
+The given field is truncated step-by-step using the delimiter from the beginning, until the field is shorter than `max_length`.
+
+Example: Cut through a long domain with a dot. The string is truncated until the domain does not exceed the configured maximum length.
+
+- input domain (e.g. ``source.fqdn``): ``www.subdomain.web.secondsubomain.test.domain.com``
+- delimiter: ``.``
+- ``max_length``: 20
+- Resulting value ``test.domain.com`` (length: 15 characters)
+
+
 .. _intelmq.bots.experts.url2fqdn.expert:
 
 Url2FQDN
@@ -3293,6 +3396,7 @@ Events without `source.url`, `source.fqdn`, `source.ip`, or `source.asn`, are ig
 only contains the domain. uWhoisd will automatically strip the subdomain part if it is present in the request.
 
 Example: `https://www.theguardian.co.uk`
+
 * TLD: `co.uk` (uWhoisd uses the `Mozilla public suffix list <https://publicsuffix.org/list/>`_ as a reference)
 * Domain: `theguardian.co.uk`
 * Subdomain: `www`
@@ -3425,6 +3529,27 @@ This output bot discards all incoming messages.
 * `cache`: no
 * `description`: discards messages
 
+
+.. _intelmq.bots.outputs.bro_file.output:
+
+Bro file
+^^^^^^^^^
+
+**Information**
+
+* `name`: `intelmq.bots.outputs.bro_file.output`
+* `lookup`: no
+* `public`: yes
+* `cache`: no
+* `description`: BRO (zeek) file output
+
+**Description**
+File example:
+```
+#fields    indicator    indicator_type    meta.desc    meta.cif_confidence    meta.source
+xxx.xxx.xxx.xxx    Intel::ADDR    phishing    100    MISP XXX
+www.testdomain.com    Intel::DOMAIN    apt    85    CERT
+```
 
 .. _intelmq.bots.outputs.elasticsearch.output:
 
@@ -3739,9 +3864,9 @@ The bot creates tickets in Request Tracker and uses event fields for the ticket 
   - if there is source.abuse_contact is specified,
   - if description text is specified in the field appointed by configuration,
 
-- RT/RTIR supposed to do relevant notifications by scrip working on condition "On Create",
+- RT/RTIR supposed to do relevant notifications by script working on condition "On Create",
 - configuration option investigation_fields specifies which event fields has to be included in the investigation,
-- Resolve Incident ticket, according to configuration (Investigation ticket status should depend on RT scrip configuration),
+- Resolve Incident ticket, according to configuration (Investigation ticket status should depend on RT script configuration),
 
 Take extra caution not to flood your ticketing system with enormous amount of tickets. Add extra filtering for that to pass only critical events to the RT, and/or deduplicating events.
 
@@ -3777,6 +3902,58 @@ REST API
 * `hierarchical_output`: boolean
 * `host`: destination URL
 * `use_json`: boolean
+
+
+.. _intelmq.bots.outputs.rpz_file.output:
+
+RPZ
+^^^^^^^^
+
+The DNS RPZ functionality is "DNS firewall". Bot generate a blocklist.
+
+**Information**
+
+* `name:` `intelmq.bots.outputs.rpz_file.output`
+* `lookup:` no
+* `public:` yes
+* `cache (redis db):` none
+* `description:` Generate RPZ file
+
+**Configuration Parameters**
+
+* `cname`: example rpz.yourdomain.eu
+* `organization_name`: Your organisation name
+* `rpz_domain`: Information website about RPZ
+* `hostmaster_rpz_domain`: Technical website
+* `rpz_email`: Contact email
+* `ttl`: Time to live
+* `ncachttl`: DNS negative cache
+* `serial`: Time stamp or another numbering
+* `refresh`: Refresh time
+* `retry`: Retry time
+* `expire`: Expiration time
+* `test_domain`: For test domain, it's added in first rpz file (after header)
+
+File example:
+```
+$TTL 3600
+@ SOA rpz.yourdomain.eu. hostmaster.rpz.yourdomain.eu. 2105260601 60 60 432000 60
+NS localhost.
+;
+; yourdomain.eu. CERT.XX Response Policy Zones (RPZ)
+; Last updated: 2021-05-26 06:01:41 (UTC)
+;
+; Terms Of Use: https://rpz.yourdomain.eu
+; For questions please contact rpz [at] yourdomain.eu
+;
+*.maliciousdomain.com CNAME rpz.yourdomain.eu.
+*.secondmaliciousdomain.com CNAME rpz.yourdomain.eu.
+```
+
+**Description**
+
+The prime motivation for creating this feature was to protect users from badness on the Internet related to known-malicious global identifiers such as host names, domain names, IP addresses, or nameservers.
+More information: https://dnsrpz.info
 
 
 .. _intelmq.bots.outputs.smtp.output:
@@ -3829,7 +4006,7 @@ SQL
 * `lookup:` no
 * `public:` yes
 * `cache (redis db):` none
-* `description:` SQL is the bot responsible to send events to a PostgreSQL or SQLite Database
+* `description:` SQL is the bot responsible to send events to a PostgreSQL, SQLite, or MSSQL Database, e.g. the IntelMQ :doc:`eventdb`
 * `notes`: When activating autocommit, transactions are not used: http://initd.org/psycopg/docs/connection.html#connection.autocommit
 
 **Configuration Parameters**
@@ -3838,19 +4015,23 @@ The parameters marked with 'PostgreSQL' will be sent to libpq via psycopg2. Chec
 
 * `autocommit`: `psycopg's autocommit mode <http://initd.org/psycopg/docs/connection.html?#connection.autocommit>`_, optional, default True
 * `connect_timeout`: Database connect_timeout, optional, default 5 seconds
-* `engine`: 'postgresql' or 'sqlite'
-* `database`: PostgreSQL database or SQLite file
-* `host`: PostgreSQL host
+* `engine`: 'postgresql', 'sqlite', or 'mssql'
+* `database`: Database or SQLite file
+* `host`: Database host
 * `jsondict_as_string`: save JSONDict fields as JSON string, boolean. Default: true (like in versions before 1.1)
-* `port`: PostgreSQL port
-* `user`: PostgreSQL user
-* `password`: PostgreSQL password
-* `sslmode`: PostgreSQL sslmode, can be `'disable'`, `'allow'`, `'prefer'` (default), `'require'`, `'verify-ca'` or `'verify-full'`. See postgresql docs: https://www.postgresql.org/docs/current/static/libpq-connect.html#libpq-connect-sslmode
+* `port`: Database port
+* `user`: Database user
+* `password`: Database password
+* `sslmode`: Database sslmode, can be `'disable'`, `'allow'`, `'prefer'` (default), `'require'`, `'verify-ca'` or `'verify-full'`. See postgresql docs: https://www.postgresql.org/docs/current/static/libpq-connect.html#libpq-connect-sslmode
 * `table`: name of the database table into which events are to be inserted
+* `fields`: list of fields to read from the event. If None, read all fields
+* `reconnect_delay`: number of seconds to wait before reconnecting in case of an error
 
-**PostgreSQL**
+PostgreSQL
+~~~~~~~~~~
 
 You have two basic choices to run PostgreSQL:
+
 1. on the same machine as intelmq, then you could use Unix sockets if available on your platform
 2. on a different machine. In which case you would need to use a TCP connection and make sure you give the right connection parameters to each psql or client call.
 
@@ -3902,7 +4083,13 @@ if the user `intelmq` can authenticate):
 
    psql -h localhost intelmq-events intelmq </tmp/initdb.sql
 
-**SQLite**
+**PostgreSQL and null characters**
+
+While null characters (`\0`, not SQL "NULL") in TEXT and JSON/JSONB fields are valid, data containing null characters can cause troubles in some combinations of clients, servers and each settings.
+To prevent unhandled errors and data which can't be inserted into the database, all null characters are escaped (`\\u0000`) before insertion.
+
+SQLite
+~~~~~~
 
 Similarly to PostgreSQL, you can use `intelmq_psql_initdb` to create initial SQL statements
 from `harmonization.conf`. The script will create the required table layout
@@ -3920,6 +4107,10 @@ Then, set the `database` parameter to the `your-db.db` file path.
 .. _stomp output bot:
 
 .. _intelmq.bots.outputs.stomp.output:
+
+**MSSQL**
+
+For MSSQL support, the library `pymssql>=2.2` is required.
 
 STOMP
 ^^^^^
@@ -4047,6 +4238,17 @@ Templates are in Jinja2 format with the event provided in the variable "event". 
    mail_to: "{{ event['source.abuse_contact'] }}"
 
 See the Jinja2 documentation at https://jinja.palletsprojects.com/ .
+
+As an extension to the Jinja2 environment, the function "from_json" is
+available for parsing JSON strings into Python structures. This is
+useful if you want to handle complicated structures in the "output"
+field of an event. In that case, you would start your template with a
+line like::
+
+   {%- set output = from_json(event['output']) %}
+
+and can then use "output" as a regular Python object in the rest of
+the template.
 
 Attachments are template strings, especially useful for sending
 structured data. E.g. to send a JSON document including "malware.name"

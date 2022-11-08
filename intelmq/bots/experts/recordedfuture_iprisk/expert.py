@@ -14,16 +14,17 @@ import tarfile
 import pathlib
 import requests
 
-from intelmq.lib.bot import Bot
+from intelmq.lib.bot import ExpertBot
 from intelmq.lib.utils import get_bots_settings, create_request_session
 from intelmq.bin.intelmqctl import IntelMQController
 
 
-class RecordedFutureIPRiskExpertBot(Bot):
+class RecordedFutureIPRiskExpertBot(ExpertBot):
     """Adds the Risk Score from RecordedFuture IPRisk associated with source.ip or destination.ip with a local database"""
     api_token: str = "<insert Recorded Future IPRisk API token>"
     database: str = "/opt/intelmq/var/lib/bots/recordedfuture_iprisk/rfiprisk.dat"  # TODO: should be pathlib.Path
     overwrite: bool = False
+    autoupdate_cached_database: bool = True  # Activate/deactivate update-database functionality
 
     _database = dict()
 
@@ -36,7 +37,7 @@ class RecordedFutureIPRiskExpertBot(Bot):
                 for row in rfreader:
                     self._database[row['Name']] = int(row['Risk'])
 
-        except IOError:
+        except OSError:
             raise ValueError("Recorded future risklist not defined or failed on open.")
 
     def process(self):
@@ -58,7 +59,7 @@ class RecordedFutureIPRiskExpertBot(Bot):
             parsed_args = cls._create_argparser().parse_args()
 
         if parsed_args.update_database:
-            cls.update_database()
+            cls.update_database(verbose=parsed_args.verbose)
 
         else:
             super().run(parsed_args=parsed_args)
@@ -67,28 +68,31 @@ class RecordedFutureIPRiskExpertBot(Bot):
     def _create_argparser(cls):
         argparser = super()._create_argparser()
         argparser.add_argument("--update-database", action='store_true', help='downloads latest database data')
+        argparser.add_argument("--verbose", action='store_true', help='be verbose')
         return argparser
 
     @classmethod
-    def update_database(cls):
+    def update_database(cls, verbose=False):
         bots = {}
         api_token = None
         runtime_conf = get_bots_settings()
         try:
             for bot in runtime_conf:
-                if runtime_conf[bot]["module"] == __name__:
+                if runtime_conf[bot]["module"] == __name__ and runtime_conf[bot]['parameters'].get('autoupdate_cached_database', True):
                     api_token = runtime_conf[bot]["parameters"]["api_token"]
                     bots[bot] = runtime_conf[bot]["parameters"]["database"]
 
         except KeyError as e:
-            sys.exit("Database update failed. Your configuration of {0} is missing key {1}.".format(bot, e))
+            sys.exit(f"Database update failed. Your configuration of {bot} is missing key {e}.")
 
         if not bots:
-            print("Database update skipped. No bots of type {0} present in runtime.conf.".format(__name__))
+            if verbose:
+                print(f"Database update skipped. No bots of type {__name__} present in runtime.conf or database update disabled with parameter 'autoupdate_cached_database'.")
             sys.exit(0)
 
         try:
-            print("Downloading the latest database update...")
+            if verbose:
+                print("Downloading the latest database update...")
             session = create_request_session()
             response = session.get("https://api.recordedfuture.com/v2/ip/risklist",
                                    params={
@@ -101,14 +105,14 @@ class RecordedFutureIPRiskExpertBot(Bot):
                                    })
 
         except requests.exceptions.RequestException as e:
-            sys.exit("Database update failed. Connection Error: {0}".format(e))
+            sys.exit(f"Database update failed. Connection Error: {e}")
 
         if response.status_code == 401:
             sys.exit("Database update failed. Your API token is invalid.")
 
         if response.status_code != 200:
-            sys.exit("Database update failed. Server responded: {0}.\n"
-                     "URL: {1}".format(response.status_code, response.url))
+            sys.exit("Database update failed. Server responded: {}.\n"
+                     "URL: {}".format(response.status_code, response.url))
 
         database_data = None
 
@@ -127,7 +131,8 @@ class RecordedFutureIPRiskExpertBot(Bot):
             with open(database_path, "w") as database:
                 database.write(database_data)
 
-        print("Database updated. Reloading affected bots.")
+        if verbose:
+            print("Database updated. Reloading affected bots.")
 
         ctl = IntelMQController()
         for bot in bots.keys():

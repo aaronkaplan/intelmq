@@ -1,10 +1,249 @@
 <!-- comment
-   SPDX-FileCopyrightText: 2015-2021 Sebastian Wagner
+   SPDX-FileCopyrightText: 2015-2022 Sebastian Wagner
    SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 CHANGELOG
 ==========
+
+3.1.0 (unreleased)
+------------------
+
+- Upgraded syntax to Python 3.6 (mostly Format-Strings) using pyuprade (PR#2136 by Sebastian Wagner).
+
+### Configuration
+
+### Core
+- `intelmq.lib.upgrades`:
+  - Refactor upgrade functions global configuration handling removing the old-style defaults configuration (PR#2058 by Sebastian Wagner).
+  - Pass version history as parameter to upgrade functions (PR#2058 by Sebastian Wagner).
+- `intelmq.lib.message`:
+  - Fix and pre-compile the regular expression for harmonization key names and also check keys in the `extra.` namespace (PR#2059 by Sebastian Wagner, fixes #1807).
+- `intelmq.lib.bot.SQLBot` was replaced by an SQLMixin in `intelmq.lib.mixins.SQLMixin`. The Generic DB Lookup Expert bot and the SQLOutput bot were updated accordingly.
+  - Added support for MSSQL (PR#2171 by Karl-Johan Karlsson).
+  - Added optional reconnect delay parameter (PR#2171 by Karl-Johan Karlsson).
+- Added an ExpertBot class - it should be used by all expert bots as a parent class
+- Introduced a module for IntelMQ related datatypes `intelmq.lib.datatypes` which for now only contains an Enum listing the four bot types
+- Added a `bottype` attribute to CollectorBot, ParserBot, ExpertBot, OutputBot
+- Introduces a module for IntelMQ processmanagers. The processmanagers were up until now part of the intelmqct script.
+  They now reside in `intelmq.lib.processmanager` which also contains an interface definition the processmanager implementations must adhere to.
+  Both the processmanagers and the `intelmqctl` script were cleaned up a bit.
+  The `LogLevel` and `ReturnType` Enums were added to `intelmq.lib.datatypes`.
+- `intelmq.lib.bot`:
+  - Enhance behaviour if an unconfigured bot is started (PR#2054 by Sebastian Wagner).
+  - Fix line recovery and message dumping of the `ParserBot` (PR#2192 by Sebastian Wagner).
+    - Previously the dumped message was always the last message of a report if the report contained multiple lines leading to data-loss.
+- `intelmq.lib.pipeline`:
+  - Changed `BRPOPLPUSH` to `BLMOVE`, because `BRPOPLPUSH` has been marked as deprecated by redis in favor of `BLMOVE` (PR#2149 by Sebastian Waldbauer, fixes #1827)
+
+### Development
+
+### Data Format
+
+### Bots
+- Set the parent class of all bots to the correct bot class
+
+#### Collectors
+- `intelmq.bots.collectors.mail._lib`:
+  - Add support for unverified SSL/STARTTLS connections (PR#2055 by Sebastian Wagner).
+  - Fix exception handling for aborted IMAP connections (PR#2187 by Sebastian Wagner).
+- `intelmq.bots.collectors.blueliv`: Fix Blueliv collector requirements (PR#2161 by Gethvi).
+- `intelmq.bots.collectors.github_api._collector_github_api`: Added personal access token support (PR#2145 by Sebastian Waldbauer, fixes #1549).
+- `intelmq.bots.collectors.file.collector_file`: Added file lock support, no more race conditions (PR#2147 by Sebastian Waldbauer, fixes #2128)
+
+#### Parsers
+- `intelmq.bots.parsers.alienvault.parser_otx`: Save CVE data in `extra.cve` instead of `extra.CVE` due to the field name restriction on lower-case characters  (PR#2059 by Sebastian Wagner).
+- `intelmq.bots.parsers.anubisnetworks.parser`: Changed field name format from `extra.communication.http.x_forwarded_for_#1` to `extra.communication.http.x_forwarded_for_1` due to the field name restriction on alphanumeric characters (PR#2059 by Sebastian Wagner).
+- `intelmq.bots.parsers.dataplane.parser`: Add support for additional feeds (PR#2102 by Mikk Margus Möll).
+  - DNS Recursion Desired
+  - DNS Recursion Desired ANY
+  - DNS Version
+  - Protocol 41
+  - SMTP Greet
+  - SMTP Data
+  - Telnet Login
+  - VNC/RFB Login
+- Removed `intelmq.bots.parsers.malc0de`: this bot was marked as deprecated and removed from feed due to offline status (PR#2184 by Tamas Gutsohn, fixes#2178).
+- `intelmq.bots.parsers.microsoft.parser_ctip`:
+  - New parameter `overwrite` (PR#2112 by Sebastian Wagner, fixes #2022).
+  - Fix handling of field `Payload.domain` if it contains the same IP address as `Payload.serverIp` (PR#2144 by Mikk Margus Möll and Sebastian Wagner).
+  - Handle Payload field with non-base64-encoded JSON content and numbered dictionaries (PR#2193 by Sebastian Wagner)
+- `intelmq.bots.parsers.shodan.parser` (PR#2117 by Mikk Margus Möll):
+  - Instead of keeping track of `extra.ftp.<something>.parameters`, FTP parameters are collected together into `extra.ftp.features` as a list of said features, reducing field count.
+  - Shodan field `rsync.modules` is collected.
+  - Conversion functions can raise `NoValueException` with a string argument to signify that the conversion would not succeed, such as in the case of a single IP address being given in hostnames, which would then be passed into `source.reverse_dns and` fail to validate as a FQDN.
+  - Variable `_common_keys` is moved out of the class.
+  - `_dict_dict_to_obj_list` is introduced, for converting a string-to-dict mapping into a list of dicts with the previous key as an attribute of the dict; this can be useful for preventing issues where, when feeding the data into aggregating tools, you'd end up with many more fields than necessary, e.g `vulns.CVE-2010-0001.cvss`, `CVE-2010-0002.cvss` etc.
+  - `_get_first` to get the first item from a list, with `NoValueException` raised on empty lists.
+  - `_get_first_hostname` to handle the first valid FQDN from a list of hostnames for hostnames in the Shodan banner, if there is one, and gives `NoValueException` otherwise.
+  - `ssl.cert.serial` and `ssl.dhparams.generator`, which may return both integers and strings, are converted to strings.
+  - Changes to method `apply_mapping`, such as reducing needless loop iterations, removing a big try-except, and adding the `NoValueException` handling described above.
+  - Stops falsy values (False, 0) besides None from being filtered out.
+- `intelmq.bots.parsers.shadowserver._config`:
+  - Added support for `Accessible AMQP`, `Device Identification Report` (IPv4 and IPv6) (PR#2134 by Mateo Durante).
+  - Added file name mapping for `SSL-POODLE-Vulnerable-Servers IPv6` (file name `scan6_ssl_poodle`) (PR#2134 by Mateo Durante).
+  - Corrected "AMQP" message_length type (int) and added "STUN" support (PR#2235 by elsif2).
+  - Added amplification factor to UDP scan reports (PR#2238 by elsif2).
+  - Added version and build_date to "Vulnerable-HTTP" report (PR#2238 by elsif2).
+- `intelmq.bots.parsers.cymru.parser_cap_program`: The parser mapped the hostname into `source.fqdn` which is not allowed by the IntelMQ Data Format. Added a check (PR#2215 by Sebastian Waldbauer, fixes #2169)
+- `intelmq.bots.parsers.generic.parser_csv`: Use RewindableFileHandle to use the original current line for line recovery (PR#2192 by Sebastian Wagner).
+- `intelmq.bots.parsers.autoshun.parser`: Removed, as the feed is discontinued (PR#2214 by Sebastian Waldbauer, fixes #2162).
+
+#### Experts
+- `intelmq.bots.experts.domain_valid`: New bot for checking domain's validity (PR#1966 by Marius Karotkis).
+- `intelmq.bots.experts.truncate_by_delimiter.expert`: Cut string if its length is higher than a maximum length (PR#1967 by Marius Karotkis).
+- `intelmq.bots.experts.remove_affix`: Remove prefix or postfix strings from a field (PR#1965 by Marius Karotkis).
+- `intelmq.bots.experts.asn_lookup.expert`: Fixes update-database script on the last few days of a month (PR#2121 by Filip Pokorný, fixes #2088).
+- `intelmq.bots.experts.threshold.expert`: Correctly use the standard parameter `redis_cache_ttl` instead of the previously used parameter `timeout` (PR#2155 by Karl-Johan Karlsson).
+- `intelmq.bots.experts.jinja2.expert`: Lift restriction on requirement jinja2 < 3 (PR#2158 by Sebastian Wagner).
+- `intelmq.bots.experts.asn_lookup.expert`, `intelmq.bots.experts.domain_suffix.expert`, `intelmq.bots.experts.maxmind_geoip.expert`, `intelmq.bots.experts.recordedfuture_iprisk.expert`, `intelmq.bots.experts.tor_nodes.expert`: New parameter `autoupdate_cached_database` to disable automatic updates (downloads) of cached databases (PR#2180 by Sebastian Wagner).
+
+#### Outputs
+- Removed `intelmq.bots.outputs.postgresql`: this bot was marked as deprecated in 2019 announced to be removed in version 3 of IntelMQ (PR#2045 by Birger Schacht).
+- Added `intelmq.bots.outputs.rpz_file.output` to create RPZ files (PR#1962 by Marius Karotkis).
+- Added `intelmq.bots.outputs.bro_file.output` to create Bro intel formatted files (PR#1963 by Marius Karotkis).
+- `intelmq.bots.outputs.templated_smtp.output`:
+  - Add new function `from_json()` (which just calls `json.loads()` in the standard Python environment), meaning the Templated SMTP output bot can take strings containing JSON documents and do the formatting itself (PR#2120 by Karl-Johan Karlsson).
+  - Lift restriction on requirement jinja2 < 3 (PR#2158 by Sebastian Wagner).
+- `intelmq.bots.outputs.sql`:
+  - For PostgreSQL, escape Nullbytes in text to prevent "unsupported Unicode escape sequence" issues (PR#2223 by Sebastian Wagner, fixes #2203).
+
+### Documentation
+- Feeds: Add documentation for newly supported dataplane feeds, see above (PR#2102 by Mikk Margus Möll).
+- Installation: Restructured the whole document to make it clearer and straight-forward (PR#2113 by Sebastian Wagner).
+- Add workaround for https://github.com/sphinx-doc/sphinx/issues/10701 (PR#2225 by Sebastian Wagner, kudos @yarikoptic, fixes #2224).
+
+### Packaging
+
+### Tests
+- Add GitHub Action to run regexploit on all Python, JSON and YAML files (PR#2059 by Sebastian Wagner).
+- `intelmq.lib.test`:
+  - Decorator `skip_ci` also detects `dpkg-buildpackage` environments by checking the environment variable `DEB_BUILD_ARCH` (PR#2123 by Sebastian Wagner).
+  - Fixing regex to catchall after python version and process ID, add tests for it (PR#2216 by Sebastian Waldbauer and Sebastian Wagner, fixes #2185)
+- Also test on Python 3.10 (PR#2140 by Sebastian Wagner).
+- Switch from nosetests to pytest, as the former does not support Python 3.10 (PR#2140 by Sebastian Wagner).
+- CodeQL Github Actions `exponential backtracking on strings` fixed. (PR#2148 by Sebastian Waldbauer, fixes #2138)
+- Reverse DNS expert tests: remove outdated failing test `test_invalid_ptr` (PR#2208 by Sebastian Wagner, fixes #2206).
+- Add test dependency `requests_mock` to the `development` extra requirements in `setup.py` (PR#2210 by Sebastian Wagner).
+- Threshold Expert tests: Use environment variable `INTELMQ_PIPELINE_HOST` as redis host, analogous to other tests (PR#2209 by Sebastian Wagner, fixes #2207).
+
+### Tools
+- `intelmqctl`: fix process manager initialization if run non-interactively, as intelmqdump does it (PR#2189 by Sebastian Wagner, fixes 2188).
+- `intelmqsetup`: Revised installation of manager by building the static files at setup, not build time, making it behave more meaningful. Requires intelmq-manager >= 3.1.0 (PR#2198 by Sebastian Wagner, fixes #2197).
+
+### Contrib
+- logrotate: Move compress and ownership rules to the IntelMQ-blocks to prevent that they apply to other files (PR#2111 by Sebastian Wagner, fixes #2110).
+
+### Known issues
+This is short list of the most important known issues. The full list can be retrieved from [GitHub](https://github.com/certtools/intelmq/labels/bug?page=2&q=is%3Aopen+label%3Abug).
+- intelmq_psql_initdb does not work for SQLite (#2202).
+- SyntaxError in bots causes intelmqctl check to crash (#2177).
+- intelmqctl create log file before dropping privileges (#2176).
+- intelmqsetup: should install a default state file (#2175).
+- Misp Expert - Crash if misp event already exist (#2170).
+- Turris greylist has been updated (#2167).
+- Spamhaus CERT parser uses wrong field (#2165).
+- Custom headers ignored in HTTPCollectorBot (#2150).
+- Missing commas in SQL query for separate Events table (#2125).
+- intelmqctl log: parsing syslog does not work (#2097).
+- Bash completion scripts depend on old JSON-based configuration files (#2094).
+- Bot configuration examples use JSON instead of YAML (#2066).
+- intelmqdump: logging_path parameter not honoured (#1605).
+- CSV line recovery forces Windows line endings (#1597).
+- Bots started with IntelMQ-API/Manager stop when the webserver is restarted (#952).
+- Corrupt dump files when interrupted during writing (#870).
+
+
+3.0.2 (2021-09-10)
+------------------
+
+### Core
+- `intelmq.lib.bot.CollectorBot`: Fixed an issue with within the `new_report` function, which re-loads the harmonization file after a new incoming dataset, which leads to CPU drain and decreased performance (PR#2106 by Sebastian Waldbauer, fixes #2098).
+- `intelmq.lib.bot.Bot`: Make private members `__is_multithreadable` and `__collector_empty_process` protected members `_is_multithreadable` and `_collector_empty_process` to make them easily modifiable by Bot classes (PR#2109 by Sebastian Wagner, fixes #2108).
+  Also affected and adapted bots by this change are:
+  - `intelmq.bots.collectors.api.collector_api`
+  - `intelmq.bots.collectors.stomp.collector`
+  - `intelmq.bots.experts.splunk_saved_search.expert`
+  - `intelmq.bots.experts.threshold.expert`
+  - `intelmq.bots.outputs.file.output`
+  - `intelmq.bots.outputs.misp.output_api`
+  - `intelmq.bots.outputs.misp.output_feed`
+  - `intelmq.bots.outputs.tcp.output`
+  - `intelmq.bots.outputs.udp.output`
+- `intelmq.lib.cache`: Do not create the Cache class if the host is null, allows deactivating the bot statistics (PR#2104 by Sebastian Waldbauer, fixes #2103).
+
+### Bots
+#### Experts
+- `intelmq.bots.experts.domain_suffix.expert`: Only print skipped database update message if verbose mode is active (PR#2107 by Sebastian Wagner, fixes #2016).
+
+### Documentation
+- Add configuration upgrade steps for 3.0 to NEWS (PR#2101 by Sebastian Wagner).
+
+### Known issues
+See [open bug reports](https://github.com/certtools/intelmq/issues?q=is%3Aissue+is%3Aopen+label%3Abug) for a more detailed list.
+- ParserBot: erroneous raw line recovery in error handling (#1850).
+
+
+3.0.1 (2021-09-02)
+------------------
+
+### Configuration
+
+### Core
+- `intelmq.lib.bot_debugger`: Fix accessing the bot's destination queues (PR#2027 by Mikk Margus Möll).
+- `intelmq.lib.pipeline`: Fix handling of `load_balance` parameter (PR#2027 by Mikk Margus Möll).
+- `intelmq.lib.bot`: Fix handling of parameter `destination_queues` if value is an empty dictionary (PR#2051 by Sebastian Wagner, fixes #2034).
+
+### Bots
+#### Collectors
+- `intelmq.bots.collectors.shodan.collector_stream`: Fix access to parameters, the bot wrongly used `self.parameters` (PR#2020 by Mikk Margus Möll).
+- `intelmq.bots.collectors.mail.collector_mail_attach`: Add attachment file name as `extra.file_name` also if the attachment is not compressed (PR#2021 by Alex Kaplan).
+- `intelmq.bots.collectors.http.collector_http_stream`: Fix access to parameters, the bot wrongly used `self.parameters` (by Sebastian Wagner).
+
+#### Parsers
+- `intelmq.bots.parsers.microsoft.parser_ctip`: Map `Payload.domain` to `destination.fqdn` instead of `extra.payload.domain` as it matches to `destination.ip` from `DestinationIp` (PR#2023 by Sebastian Wagner).
+- Removed `intelmq.bots.parsers.malwaredomains` because the upstream data source (malwaredomains.com) does not exist anymore (PR#2026 by Birger Schacht, fixes #2024).
+- `intelmq.bots.parsers.shadowserver._config`:
+  - Add support for feed "Vulnerable SMTP Server" (PR#2037 by Mikk Margus Möll).
+  - Fix differentiation between feeds "Accessible HTTP" and "Vulnerable HTTP" (PR#2037 by Mikk Margus Möll, fixes #1984).
+  - Add support for the new feeds *Microsoft Sinkhole Events Report*, *Microsoft Sinkhole HTTP Events Report* (PR#2036 by Birger Schacht).
+  - Complement feed mappings and documentation for feeds with IPv4 and IPv6 variants (PR#2046 by Mikk Margus Möll and Sebastian Wagner).
+   - Feed names with and without the optional IPv4/IPv6 postfix can be used now consistently.
+  - Add support for feed "Honeypot HTTP Scan" (PR#2047 by Mikk Margus Möll).
+  - Update filename mapping for changed filename of feed "Accessible-MSRDPUDP" (PR#2060 by abr4xc).
+
+#### Experts
+- `intelmq.bots.experts.gethostbyname.expert`: Handle numeric values for the `gaierrors_to_ignore` parameter (PR#2073 by Sebastian Wagner, fixes #2072).
+- `intelmq.bots.experts.filter.expert`: Fix handling of empty-string parameters `not_after` and `not_before` (PR#2075 by Sebastian Wagner, fixes #2074).
+
+#### Outputs
+- `intelmq.bots.outputs.mcafee.output_esm_ip`: Fix access to parameters, the bot wrongly used `self.parameters` (by Sebastian Wagner).
+- `intelmq.bots.outputs.misp.output_api`: Fix access to parameters, the bot wrongly used `self.parameters` (by Sebastian Wagner).
+- `intelmq.bots.outputs.smtp.output`: Add `Content-Disposition`-header to the attachment, fixing the display in Mail Clients as actual attachment (PR#2052 by Sebastian Wagner, fixes #2018).
+
+### Documentation
+- Various formatting fixes (by Sebastian Wagner).
+- Removed the malwaredomains feed from the feeds list because the upstream data source (malwaredomains.com) does not exist anymore (PR#2026 by Birger Schacht, fixes #2024).
+- Update Docker installation instructions (PR#2035 by Sebastian Waldbauer).
+
+### Packaging
+- intelmq-update-database crontab: Add missing `recordedfuture_iprisk` update call (by Sebastian Wagner).
+
+### Tests
+- Replace calls to deprecated/undocumented `logging.warn` with `logging.warning` (by Sebastian Wagner, fixes #2013).
+- `intelmq.tests.bots.experts.rdap.test_expert`: Declare cache use, fixes build failures (by Sebastian Wagner, fixes #2014).
+- `intelmq.tests.bots.collectors.mail.test_collector_attach`: Test text attachment (by Sebastian Wagner).
+
+### Tools
+- `intelmqctl`:
+  - Also honour parameters from environment variables (PR#2068 by Sebastian Wagner, fixes #2063).
+  - Fix management actions (start/stop/status/reload/restart) for groups (PR#2086 by Sebastian Wagner, fixes #2085).
+  - Do not use hardcoded logging path in `/opt/intelmq`, use the internal default instead (PR#2092 by Sebastian Wagner, fixes #2091).
+
+### Known issues
+See [open bug reports](https://github.com/certtools/intelmq/issues?q=is%3Aissue+is%3Aopen+label%3Abug) for a more detailed list.
+- ParserBot: erroneous raw line recovery in error handling (#1850).
+
 
 3.0.0 (2021-07-02)
 ------------------
@@ -17,7 +256,7 @@ CHANGELOG
 
 ### Core
 - `intelmq.lib.harmonization`:
-  - New class `ClassificationTaxonomy` with fixed list of taxonomies and sanitiation
+  - New class `ClassificationTaxonomy` with fixed list of taxonomies and sanitiation (by Sebastian Wagner).
 - `intelmq.lib.bot`:
   - Handle `InvalidValue` exceptions upon message retrieval by dumping the message instead of repeating endlessly (#1765, PR#1766 by Filip Pokorný).
   - Rewrite of the parameter loading and handling, getting rid of the `parameters` member (PR#1729 by Birger Schacht).
@@ -26,7 +265,7 @@ CHANGELOG
   - `InvalidValue`: Add optional parameter `object` (PR#1766 by Filip Pokorný).
 - `intelmq.lib.utils`:
   - New function `list_all_bots` to list all available/installed bots as replacement for the BOTS file (#368, #552, #644, #757, #1069, #1750, PR#1751 by Sebastian Waldbauer).
-  - New function `get_bots_settings` to return the effective bot parameters, with global parameters applied.
+  - New function `get_bots_settings` to return the effective bot parameters, with global parameters applied (PR#1928 by Sebastian Wagner, #1927).
   - Removed deprecated function `create_request_session_from_bot` (PR#1997 by Sebastian Wagner, #1404).
   - `parse_relative`: Add support for parsing minutes and seconds (PR#1857 by Sebastian Wagner).
 - `intelmq.lib.bot_debugger`:
@@ -35,13 +274,13 @@ CHANGELOG
   - Do not rely on the runtime configuration's `group` setting of bots to determine the required message type of messages given on the command line (PR#1949 by Sebastian Wagner).
 
 ### Development
-- `rewrite_config_files.py`: Removed obsolete BOTS-file-related rewriting functionality.
-- A Github action that checks for [reuse compliance](https://reuse.software) of all the license and copyright headers was added.
+- `rewrite_config_files.py`: Removed obsolete BOTS-file-related rewriting functionality (by Sebastian Wagner, #1543).
+- A GitHub Action that checks for [reuse compliance](https://reuse.software) of all the license and copyright headers was added (PR#1976 by Birger Schacht).
 - PyYAML is no longer a required dependency for development environments, all calls to it have been replaced by ruamel.yaml (by Sebastian Wagner).
 
 ### Data Format
 The IntelMQ Data Harmonization ("DHO") is renamed to IntelMQ Data Format ("IDF"). Internal files remain and work the same as before (PR#1818 by Sebastian Waldbauer, fixes 1810).
-Update allowed classification fields to version 1.3 (2021-05-18) (fixes #1409, #1476).
+Update allowed classification fields to version 1.3 (2021-05-18) (by Sebastian Wagner, fixes #1409, #1476).
 - The taxonomy `abusive content` has been renamed to `abusive-content`.
 - The taxonomy `information content security` has been renamed to `information-content-security`.
   - The validation of type `unauthorised-information-access` has been fixed, a bug prevented the use of it.
@@ -72,7 +311,7 @@ Update allowed classification fields to version 1.3 (2021-05-18) (fixes #1409, #
 
 #### Collectors
 - Remove `intelmq.bots.collectors.xmpp`: one of the dependencies of the bot was deprecated and according to a short survey on the IntelMQ
-  users mailinglist, the bot is not used by anyone. (https://lists.cert.at/pipermail/intelmq-users/2020-October/000177.html, PR#1761, closes #1614)
+  users mailinglist, the bot is not used by anyone. (https://lists.cert.at/pipermail/intelmq-users/2020-October/000177.html, PR#1761 by Birger Schacht, closes #1614).
 - `intelmq.bots.collectors.mail._lib`: Added parameter `mail_starttls` for STARTTLS in all mail collector bots (PR#1831 by Marius Karotkis, fixes #1128).
 - Added `intelmq.bots.collectors.fireeye`: A bot that collects indicators from Fireeye MAS appliances (PR#1745 by Christopher Schappelwein).
 - `intelmq.bots.collectors.api.collector_api` (PR#1987 by Mikk Margus Möll, fixes #1986):
@@ -93,9 +332,9 @@ Update allowed classification fields to version 1.3 (2021-05-18) (fixes #1409, #
   - Added `--update-database` option to update domain suffix database (by Sebastian Wagner).
   - Fix `check` method: load database with UTF-8 encoding explicitly (by Sebastian Wagner).
 - Added `intelmq.bots.experts.http.expert_status`: A bot that fetches the HTTP Status for a given URI and adds it to the message (PR#1789 by Birger Schacht, fixes #1047 partly).
-- Added `intelmq.bots.experts.http.expert_content`: A bot that fetches an HTTP resource and checks if it contains a specific string.
+- Added `intelmq.bots.experts.http.expert_content`: A bot that fetches an HTTP resource and checks if it contains a specific string (PR#1811 by Birger Schacht).
 - Added `intelmq.bots.experts.lookyloo.expert`: A bot that sends requests to a lookyloo instance & adds `screenshot_url` to the event (PR#1844 by Sebastian Waldbauer, fixes #1048).
-- Added `intelmq.bots.experts.rdap.expert`: A bot that checks the rdap protocol for an abuse contact for a given domain.
+- Added `intelmq.bots.experts.rdap.expert`: A bot that checks the rdap protocol for an abuse contact for a given domain (PR#1881 by Sebastian Waldbauer and Sebastian Wagner).
 - `intelmq.bots.experts.sieve.expert`:
   - Add operators for comparing lists and sets (PR#1895 by Mikk Margus Möll):
     - `:equals`
@@ -119,12 +358,12 @@ Update allowed classification fields to version 1.3 (2021-05-18) (fixes #1409, #
 - Removed deprecated `intelmq.bots.experts.ripencc_abuse_contact.expert`. It was replaced by `intelmq.bots.experts.ripe.expert` and marked as deprecated in 2.0.0.beta1 (PR#1997 by Sebastian Wagner, #1404).
 - `intelmq.bots.experts.modify.expert`:
   - Removed compatibility with deprecated configuration format before 1.0.0.dev7 (PR#1997 by Sebastian Wagner, #1404).
-- Added `intelmq.bots.experts.aggregate`: A bot that aggregate events based upon given fields & a timespan. (PR#1959 by Sebastian Waldbauer)
+- Added `intelmq.bots.experts.aggregate`: A bot that aggregate events based upon given fields & a timespan (PR#1959 by Sebastian Waldbauer).
 - Added `intelmq.bots.experts.tuency`: A bot that queries the IntelMQ API of a tuency instance (PR#1857 by Sebastian Wagner, fixes #1856).
 
 #### Outputs
 - Remove `intelmq.bots.outputs.xmpp`: one of the dependencies of the bot was deprecated and according to a short survey on the IntelMQ
-  users mailinglist, the bot is not used by anyone. (https://lists.cert.at/pipermail/intelmq-users/2020-October/000177.html, PR#1761, closes #1614)
+  users mailinglist, the bot is not used by anyone. (https://lists.cert.at/pipermail/intelmq-users/2020-October/000177.html, PR#1761 by Birger Schacht, closes #1614)
 - `intelmq.bots.outputs.smtp`: Add more debug logging (PR#1949 by Sebastian Wagner).
 - Added new bot `intelmq.bots.outputs.templated_smtp` (PR#1901 by Karl-Johan Karlsson).
 
@@ -132,7 +371,7 @@ Update allowed classification fields to version 1.3 (2021-05-18) (fixes #1409, #
 - Updated user and developer documentation to reflect the removal of the BOTS file (PR#1780 by Birger Schacht).
 - Bots documentation:
   - Added anchors to all bot sections derived from the module names for easier linking (PR#1943 by Sebastian Wagner fixes part of certtools/intelmq-api#4).
-- License and copyright information was added to all the bots.
+- License and copyright information was added to all the bots (PR#1976 by Birger Schacht).
 - Added documentation on the EventDB (PR#1955 by Birger Schacht, PR#1985 by Sebastian Wagner).
 - Added TimescaleDB for time-series documentation (PR#1990 by Sebastian Waldbauer).
 - Improved n6 interoperability documentation by adding more graphs and illustrations (PR#1991 by Sebastian Wagner).
@@ -622,7 +861,7 @@ IntelMQ no longer supports Python 3.5 (and thus Debian 9 and Ubuntu 16.04), the 
 - `intelmq.bots.experts.maxmind_geoip`: On Python < 3.6, require maxminddb < 2, as that version does no longer support Python 3.5.
 
 #### Outputs
-- `intelmq.bot.outputs.udp`: Fix error handling on sending, had a bug itself.
+- `intelmq.bots.outputs.udp`: Fix error handling on sending, had a bug itself.
 
 ### Documentation
 - Feeds:
@@ -1076,7 +1315,7 @@ Dropped support for Python 3.4.
   - use default SSL context for client purposes, fixes compatibility with python `<` 3.6 if TLS is used.
 
 #### Parsers
-- `intelmq.bot.parsers.html_table.parser`:
+- `intelmq.bots.parsers.html_table.parser`:
   * New parameter "html_parser".
   * Use time conversion functions directly from `intelmq.lib.harmonization.DateTime.convert`.
   - Limit lxml dependency on 3.4 to `<` 4.4.0 (incompatibility).
@@ -1087,15 +1326,15 @@ Dropped support for Python 3.4.
 
 #### Experts
 - Add geohash expert.
-- `intelmq.bot.experts.generic_db_lookup.expert`
+- `intelmq.bots.experts.generic_db_lookup.expert`
   - new optional parameter `engine` with `postgresql` (default) and `sqlite` (new) as possible values.
 
 #### Outputs
 - Add `intelmq.bots.outputs.touch.output`.
-- `intelmq.bot.outputs.postgresql.output`:
-  - deprecated in favor of `intelmq.bot.outputs.sql.output`
+- `intelmq.bots.outputs.postgresql.output`:
+  - deprecated in favor of `intelmq.bots.outputs.sql.output`
   - Compatibility shim will be available in the 2.x series.
-- `intelmq.bot.outputs.sql.output` added generic SQL output bot. Comparted to
+- `intelmq.bots.outputs.sql.output` added generic SQL output bot. Comparted to
   - new optional parameter `engine` with `postgresql` (default) and `sqlite` (new) as possible values.
 - `intelmq.bots.outputs.stomp.output`: New parameters `message_hierarchical`, `message_jsondict_as_string`, `message_with_type`, `single_key`.
 
@@ -1486,7 +1725,7 @@ There are some features considered as beta and marked as such in the documentati
   - Update columns and mapping to current (2019-04-02) data.
 - added `intelmq.bots.parsers.surbl.surbl`
 - added `intelmq.bots.parsers.html_table` (#1381).
-- `intelmq.bot.parsers.netlab_360.parser`: Handle empty lines containing blank characters (#1393).
+- `intelmq.bots.parsers.netlab_360.parser`: Handle empty lines containing blank characters (#1393).
 - `intelmq.bots.parsers.n6.parser_n6stomp`: Handle events without IP addresses.
 - `intelmq.bots.parsers.cymru.parser_cap_program`: Handle new feed format.
 - `intelmq.bots.parsers.shadowserver`:

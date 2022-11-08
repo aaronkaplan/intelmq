@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Parse a string of key=value pairs.
 
 SPDX-FileCopyrightText: 2020 Linköping University <https://liu.se/>
@@ -66,8 +65,8 @@ class KeyValueParserBot(ParserBot):
                         value = parse(value, fuzzy=True).isoformat() + " UTC"
                 except ValueError:
                     value = None  # Will be ignored by event.add()
-                    self.logger.warn("Could not parse key %r for 'time.source'."
-                                     " Ignoring this key in line %r.", (value, row))
+                    self.logger.warning("Could not parse key %r for 'time.source'."
+                                        " Ignoring this key in line %r.", (value, row))
             if key in self.keys:
                 event.add(self.keys[key], value, raise_failure=False)
         event.add("raw", self.recover_line(row))

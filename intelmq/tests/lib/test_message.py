@@ -583,7 +583,7 @@ class TestMessageFactory(unittest.TestCase):
         event_type = type(message.MessageFactory.from_dict(event,
                                                            harmonization=HARM))
         self.assertTrue(event_type is message.Event,
-                        msg='Type is {} instead of Event.'.format(event_type))
+                        msg=f'Type is {event_type} instead of Event.')
 
     def test_event_init_check(self):
         """ Test if initialization method checks fields. """
@@ -762,6 +762,12 @@ class TestMessageFactory(unittest.TestCase):
             message.Event(harmonization={'event': {'foo..bar': {}}})
         with self.assertRaises(exceptions.InvalidKey):
             message.Event(harmonization={'event': {'foo.bar.': {}}})
+
+    def test_invalid_extra_key_name(self):
+        """ Test if error is raised if an extra field name is invalid. """
+        event = message.Event(harmonization=HARM)
+        with self.assertRaises(exceptions.InvalidKey):
+            event.add('extra.foo-', 'bar')
 
 
 class TestReport(unittest.TestCase):

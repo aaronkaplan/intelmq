@@ -13,7 +13,8 @@ import intelmq.lib.upgrades as upgrades
 from intelmq.lib.utils import load_configuration
 
 
-V202 = {"test-collector": {
+V202 = {"global": {},
+        "test-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http",
     "parameters": {
@@ -34,7 +35,8 @@ V202 = {"test-collector": {
     },
 },
 }
-V202_EXP = {"test-collector": {
+V202_EXP = {"global": {},
+            "test-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http",
     "parameters": {
@@ -58,7 +60,8 @@ V202_EXP = {"test-collector": {
 },
 }
 
-DEP_110 = {"n6-collector": {
+DEP_110 = {"global": {},
+           "n6-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.n6.collector_stomp",
     "parameters": {
@@ -79,7 +82,8 @@ DEP_110 = {"n6-collector": {
     },
 }
 }
-DEP_110_EXP = {"n6-collector": {
+DEP_110_EXP = {"global": {},
+               "n6-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.stomp.collector",
     "parameters": {
@@ -99,7 +103,8 @@ DEP_110_EXP = {"n6-collector": {
         "query_ripe_stat_ip": True,
     },
 }}
-V210 = {"test-collector": {
+V210 = {"global": {},
+        "test-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.rt.collector_rt",
     "parameters": {
@@ -148,7 +153,8 @@ V210 = {"test-collector": {
     }
 }
 }
-V210_EXP = {"test-collector": {
+V210_EXP = {"global": {},
+            "test-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.rt.collector_rt",
     "parameters": {
@@ -199,7 +205,8 @@ V210_EXP = {"test-collector": {
     }
 }
 }
-V213 = {"mail-collector": {
+V213 = {"global": {},
+        "mail-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.mail.collector_mail_attach",
     "parameters": {
@@ -215,7 +222,8 @@ V213 = {"mail-collector": {
     }
 }
 }
-V213_EXP = {"mail-collector": {
+V213_EXP = {"global": {},
+            "mail-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.mail.collector_mail_attach",
     "parameters": {
@@ -231,26 +239,28 @@ V213_EXP = {"mail-collector": {
 }
 }
 V220_MISP_VERIFY_FALSE = {
-"misp-collector": {
+    "global": {"http_verify_cert": True},
+    "misp-collector": {
         "module": "intelmq.bots.collectors.misp.collector",
         "parameters": {
-                "misp_verify": False}}}
+            "misp_verify": False}}}
 V220_MISP_VERIFY_NULL = {
-"misp-collector": {
+    "global": {"http_verify_cert": True},
+    "misp-collector": {
         "module": "intelmq.bots.collectors.misp.collector",
         "parameters": {}}}
 V220_MISP_VERIFY_TRUE = {
-"misp-collector": {
+    "global": {"http_verify_cert": True},
+    "misp-collector": {
         "module": "intelmq.bots.collectors.misp.collector",
         "parameters": {
-                "misp_verify": True}}}
+            "misp_verify": True}}}
 V220_HTTP_VERIFY_FALSE = {
-"misp-collector": {
+    "global": {"http_verify_cert": True},
+    "misp-collector": {
         "module": "intelmq.bots.collectors.misp.collector",
         "parameters": {
-                "http_verify_cert": False}}}
-DEFAULTS_HTTP_VERIFY_TRUE = {
-        "http_verify_cert": True}
+            "http_verify_cert": False}}}
 HARM = load_configuration(pkg_resources.resource_filename('intelmq',
                                                           'etc/harmonization.conf'))
 V210_HARM = deepcopy(HARM)
@@ -261,96 +271,97 @@ WRONG_TYPE = deepcopy(HARM)
 WRONG_TYPE['event']['source.asn']['type'] = 'String'
 WRONG_REGEX = deepcopy(HARM)
 WRONG_REGEX['event']['protocol.transport']['iregex'] = 'foobar'
-V213_FEED = {"zeus-collector": {
+V213_FEED = {"global": {},
+             "zeus-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http",
     "parameters": {
         "http_url": "https://zeustracker.abuse.ch/blocklist.php?download=badips",
     }
 },
-"bitcash-collector": {
+    "bitcash-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http",
     "parameters": {
         "http_url": "https://bitcash.cz/misc/log/blacklist",
     }
 },
-"ddos-attack-c2-collector": {
+    "ddos-attack-c2-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http_stream",
     "parameters": {
         "http_url": "https://feed.caad.fkie.fraunhofer.de/ddosattackfeed/",
     }
 },
-"ddos-attack-targets-collector": {
+    "ddos-attack-targets-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http_stream",
     "parameters": {
         "http_url": "https://feed.caad.fkie.fraunhofer.de/ddosattackfeed/",
     }
 },
-"taichung-collector": {
+    "taichung-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http",
     "parameters": {
         "http_url": "https://www.tc.edu.tw/net/netflow/lkout/recent/30",
     },
 },
-"ransomware-collector": {
+    "ransomware-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http",
     "parameters": {
         "http_url": "https://ransomwaretracker.abuse.ch/feeds/csv/",
     },
 },
-"bambenek-dga-collector": {
+    "bambenek-dga-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http",
     "parameters": {
         "http_url": "https://osint.bambenekconsulting.com/feeds/dga-feed.txt",
     },
 },
-"bambenek-c2dommasterlist-collector": {
+    "bambenek-c2dommasterlist-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http",
     "parameters": {
         "http_url": "http://osint.bambenekconsulting.com/feeds/c2-dommasterlist.txt",
     },
 },
-"nothink-dns-collector": {
+    "nothink-dns-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http",
     "parameters": {
         "http_url": "http://www.nothink.org/honeypot_dns_attacks.txt",
     },
 },
-"nothink-ssh-collector": {
+    "nothink-ssh-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http",
     "parameters": {
         "http_url": "http://www.nothink.org/blacklist/blacklist_ssh_day.txt",
     },
 },
-"nothink-parser": {
+    "nothink-parser": {
     "group": "Parser",
     "module": "intelmq.bots.parsers.nothink.parser",
 },
 }
-V220_FEED = {
-"urlvir-hosts-collector": {
+V220_FEED = {"global": {},
+             "urlvir-hosts-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http",
     "parameters": {
         "http_url": "http://www.urlvir.com/export-hosts/",
     },
 },
-"urlvir-parser": {
+    "urlvir-parser": {
     "group": "Parser",
     "module": "intelmq.bots.parsers.urlvir.parser",
 },
 }
-V221_FEED = {
-"abusech-urlhaus-columns-string-parser": {
+V221_FEED = {"global": {},
+             "abusech-urlhaus-columns-string-parser": {
     "parameters": {
         "column_regex_search": {},
         "columns": "time.source,source.url,status,extra.urlhaus.threat_type,source.fqdn,source.ip,source.asn,source.geolocation.cc",
@@ -367,10 +378,10 @@ V221_FEED = {
     },
     "module": "intelmq.bots.parsers.generic.parser_csv",
 },
-"abusech-urlhaus-columns-dict-parser": {
+    "abusech-urlhaus-columns-dict-parser": {
     "parameters": {
         "column_regex_search": {},
-        "columns": ["time.source", "source.url","status","extra.urlhaus.threat_type","source.fqdn","source.ip","source.asn","source.geolocation.cc"],
+        "columns": ["time.source", "source.url", "status", "extra.urlhaus.threat_type", "source.fqdn", "source.ip", "source.asn", "source.geolocation.cc"],
         "default_url_protocol": "http://",
         "delimiter": ",",
         "filter_text": None,
@@ -385,8 +396,8 @@ V221_FEED = {
     "module": "intelmq.bots.parsers.generic.parser_csv",
 }
 }
-V221_FEED_OUT = {
-"abusech-urlhaus-columns-string-parser": {
+V221_FEED_OUT = {"global": {},
+                 "abusech-urlhaus-columns-string-parser": {
     "parameters": {
         "column_regex_search": {},
         "columns": ['time.source', 'source.url', 'status', 'classification.type|__IGNORE__', 'source.fqdn|__IGNORE__', 'source.ip', 'source.asn', 'source.geolocation.cc'],
@@ -405,95 +416,143 @@ V221_FEED_OUT = {
 }
 }
 V221_FEED_OUT['abusech-urlhaus-columns-dict-parser'] = V221_FEED_OUT['abusech-urlhaus-columns-string-parser']
-V221_FEED_2 = {
-"hphosts-collector": {
+V221_FEED_2 = {"global": {},
+               "hphosts-collector": {
     "group": "Collector",
     "module": "intelmq.bots.collectors.http.collector_http",
     "parameters": {
         "http_url": "http://hosts-file.net/download/hosts.txt",
     },
 },
-"hphosts-parser": {
+    "hphosts-parser": {
     "group": "Parser",
     "module": "intelmq.bots.parsers.hphosts.parser",
 },
 }
 V222 = {
-"shadowserver-parser": {
-    "module": "intelmq.bots.parsers.shadowserver.parser",
-    "parameters": {
-        "feedname": "Blacklisted-IP"}}}
+    "global": {},
+    "shadowserver-parser": {
+        "module": "intelmq.bots.parsers.shadowserver.parser",
+        "parameters": {
+            "feedname": "Blacklisted-IP"}}}
 V222_OUT = {
-"shadowserver-parser": {
-    "module": "intelmq.bots.parsers.shadowserver.parser",
-    "parameters": {
-        "feedname": "Blocklist"}}}
+    "global": {},
+    "shadowserver-parser": {
+        "module": "intelmq.bots.parsers.shadowserver.parser",
+        "parameters": {
+            "feedname": "Blocklist"}}}
 
 V230_IN = {
-"urlhaus-parser": {
-    "module": "intelmq.bots.parsers.generic.parser_csv",
-    "parameters": {
-        "delimeter": ","
+    "global": {},
+    "urlhaus-parser": {
+        "module": "intelmq.bots.parsers.generic.parser_csv",
+        "parameters": {
+            "delimeter": ","
+        }
     }
-}
 }
 V230_IN_BOTH = {
-"urlhaus-parser": {
-    "module": "intelmq.bots.parsers.generic.parser_csv",
-    "parameters": {
-        "delimeter": ",",
-        "delimiter": ","
+    "global": {},
+    "urlhaus-parser": {
+        "module": "intelmq.bots.parsers.generic.parser_csv",
+        "parameters": {
+            "delimeter": ",",
+            "delimiter": ","
+        }
     }
-}
 }
 V230_OUT = {
-"urlhaus-parser": {
-    "module": "intelmq.bots.parsers.generic.parser_csv",
-    "parameters": {
-        "delimiter": ","
+    "global": {},
+    "urlhaus-parser": {
+        "module": "intelmq.bots.parsers.generic.parser_csv",
+        "parameters": {
+            "delimiter": ","
+        }
     }
-}
 }
 V230_MALWAREDOMAINLIST_IN = {
-"malwaredomainlist-parser": {
-    "module": "intelmq.bots.parsers.malwaredomainlist.parser",
-    "parameters": {
-    }
-},
-"malwaredomainlist-collector": {
-    "module": "intelmq.bots.collectors.http.collector_http",
-    "parameters": {
-        "http_url": "http://www.malwaredomainlist.com/updatescsv.php"
+    "global": {},
+    "malwaredomainlist-parser": {
+        "module": "intelmq.bots.parsers.malwaredomainlist.parser",
+        "parameters": {
+        }
+    },
+    "malwaredomainlist-collector": {
+        "module": "intelmq.bots.collectors.http.collector_http",
+        "parameters": {
+            "http_url": "http://www.malwaredomainlist.com/updatescsv.php"
         }
     }
 }
 V233_FEODOTRACKER_BROWSE_IN = {
-'Feodo-tracker-browse-parser': {
-    'module': "intelmq.bots.parsers.html_table.parser",
-    'parameters': {
-        'columns': 'time.source,source.ip,malware.name,status,extra.SBL,source.as_name,source.geolocation.cc'.split(','),
-        'type': 'c2server',
-        'ignore_values': ',,,,Not listed,,',
-        'skip_table_head': True,
+    "global": {},
+    'Feodo-tracker-browse-parser': {
+        'module': "intelmq.bots.parsers.html_table.parser",
+        'parameters': {
+            'columns': 'time.source,source.ip,malware.name,status,extra.SBL,source.as_name,source.geolocation.cc'.split(','),
+            'type': 'c2server',
+            'ignore_values': ',,,,Not listed,,',
+            'skip_table_head': True,
+        }
     }
-}
 }
 V233_FEODOTRACKER_BROWSE_OUT = {
-'Feodo-tracker-browse-parser': {
-    'module': "intelmq.bots.parsers.html_table.parser",
-    'parameters': {
-        'columns': 'time.source,source.ip,malware.name,status,source.as_name,source.geolocation.cc',
-        'type': 'c2server',
-        'ignore_values': ',,,,,',
-        'skip_table_head': True,
+    "global": {},
+    'Feodo-tracker-browse-parser': {
+        'module': "intelmq.bots.parsers.html_table.parser",
+        'parameters': {
+            'columns': 'time.source,source.ip,malware.name,status,source.as_name,source.geolocation.cc',
+            'type': 'c2server',
+            'ignore_values': ',,,,,',
+            'skip_table_head': True,
+        }
     }
 }
+V301_MALWAREDOMAINS_IN = {
+    "global": {},
+    "malwaredomains-parser": {
+        "module": "intelmq.bots.parsers.malwaredomains.parser",
+        "parameters": {
+        }
+    },
+    "malwaredomains-collector": {
+        "module": "intelmq.bots.collectors.http.collector",
+        "parameters": {
+            "http_url": "http://mirror1.malwaredomains.com/files/domains.txt"
+        }
+    }
 }
+V310_FEED_CHANGES = {
+    "global": {},
+    "autoshun-parser": {
+        "module": "intelmq.bots.parsers.autoshun.parser",
+        "parameters": {
+        }
+    },
+    "autoshun-collector": {
+        "module": "intelmq.bots.collectors.http.collector",
+        "parameters": {
+            "http_url": "https://www.autoshun.org/download"
+        }
+    },
+    "malc0de-collector": {
+        "module": "intelmq.bots.collectors.http.collector",
+        "parameters": {
+            "http_url": "https://malc0de.com/bl/ZONES"
+        }
+    },
+    "malc0de-parser": {
+        "module": "intelmq.bots.parsers.malc0de.parser",
+        "parameters": {}
+    }
+}
+
 
 def generate_function(function):
     def test_function(self):
         """ Test if no errors happen for upgrade function %s. """ % function.__name__
-        function({}, {}, {}, dry_run=True)
+        function({'global': {}}, {}, dry_run=True,
+                 version_history=())
     return test_function
 
 
@@ -504,8 +563,8 @@ class TestUpgradeLib(unittest.TestCase):
         self.mapping_list = []
         self.mapping_list_name = []
         for values in upgrades.UPGRADES.values():
-            self.mapping_list.extend((x for x in values))
-            self.mapping_list_name.extend((x.__name__ for x in values))
+            self.mapping_list.extend(x for x in values)
+            self.mapping_list_name.extend(x.__name__ for x in values)
 
     def test_all_functions_used(self):
         self.assertEqual(len(self.mapping_list_name),
@@ -521,66 +580,64 @@ class TestUpgradeLib(unittest.TestCase):
 
     def test_v110_deprecations(self):
         """ Test v110_deprecations """
-        result = upgrades.v110_deprecations({}, DEP_110, {}, False)
+        result = upgrades.v110_deprecations(DEP_110, {}, False)
         self.assertTrue(result[0])
-        self.assertEqual(DEP_110_EXP, result[2])
+        self.assertEqual(DEP_110_EXP, result[1])
 
     def test_v202_fixes(self):
         """ Test v202_feed_name """
-        result = upgrades.v202_fixes({}, V202, {}, False)
+        result = upgrades.v202_fixes(V202, {}, False)
         self.assertTrue(result[0])
-        self.assertEqual(V202_EXP, result[2])
+        self.assertEqual(V202_EXP, result[1])
 
     def test_v210_deprecations(self):
         """ Test v210_deprecations """
-        result = upgrades.v210_deprecations({}, V210, {}, True)
+        result = upgrades.v210_deprecations(V210, {}, True)
         self.assertTrue(result[0])
-        self.assertEqual(V210_EXP, result[2])
+        self.assertEqual(V210_EXP, result[1])
 
     def test_harmonization(self):
         """ Test harmonization: Addition of extra to report """
-        result = upgrades.harmonization({}, {}, V210_HARM, False)
+        result = upgrades.harmonization({}, V210_HARM, False)
         self.assertTrue(result[0])
-        self.assertEqual(HARM, result[3])
+        self.assertEqual(HARM, result[2])
 
     def test_v220_configuration(self):
         """ Test v220_configuration. """
-        result = upgrades.v220_configuration(DEFAULTS_HTTP_VERIFY_TRUE,
-                                               V220_MISP_VERIFY_TRUE, {}, False)
+        result = upgrades.v220_configuration(V220_MISP_VERIFY_TRUE, {}, False)
         self.assertTrue(result[0])
-        self.assertEqual(V220_MISP_VERIFY_NULL, result[2])
-        result = upgrades.v220_configuration(DEFAULTS_HTTP_VERIFY_TRUE,
-                                               V220_MISP_VERIFY_FALSE, {}, False)
+        self.assertEqual(V220_MISP_VERIFY_NULL, result[1])
+        result = upgrades.v220_configuration(V220_MISP_VERIFY_FALSE, {}, False)
         self.assertTrue(result[0])
-        self.assertEqual(V220_HTTP_VERIFY_FALSE, result[2])
+        self.assertEqual(V220_HTTP_VERIFY_FALSE, result[1])
 
     def test_missing_report_harmonization(self):
         """ Test missing report in harmonization """
-        result = upgrades.harmonization({}, {}, MISSING_REPORT, False)
+        result = upgrades.harmonization({}, MISSING_REPORT, False)
         self.assertTrue(result[0])
-        self.assertEqual(HARM, result[3])
+        self.assertEqual(HARM, result[2])
 
     def test_wrong_type_harmonization(self):
         """ Test wrong type in harmonization """
-        result = upgrades.harmonization({}, {}, WRONG_TYPE, False)
+        result = upgrades.harmonization({}, WRONG_TYPE, False)
         self.assertTrue(result[0])
-        self.assertEqual(HARM, result[3])
+        self.assertEqual(HARM, result[2])
 
     def test_wrong_regex_harmonization(self):
         """ Test wrong regex in harmonization """
-        result = upgrades.harmonization({}, {}, WRONG_REGEX, False)
+        result = upgrades.harmonization({}, WRONG_REGEX, False)
         self.assertTrue(result[0])
-        self.assertEqual(HARM, result[3])
+        self.assertEqual(HARM, result[2])
 
     def test_v213_deprecations(self):
         """ Test v213_fixes """
-        result = upgrades.v213_deprecations({}, V213, {}, False)
+        result = upgrades.v213_deprecations(V213, {}, False)
         self.assertTrue(result[0])
-        self.assertEqual(V213_EXP, result[2])
+        self.assertEqual(V213_EXP, result[1])
 
     def test_v213_feed_changes(self):
         """ Test v213_feed_changes """
-        result = upgrades.v213_feed_changes({}, V213_FEED, {}, False)
+        result = upgrades.v213_feed_changes(V213_FEED, {}, False)
         self.assertEqual('A discontinued feed "Zeus Tracker" has been found '
                          'as bot zeus-collector. '
                          'The discontinued feed "Bitcash.cz" has been found '
@@ -601,81 +658,102 @@ class TestUpgradeLib(unittest.TestCase):
                          'affected bots are nothink-parser. '
                          'Remove affected bots yourself.',
                          result[0])
-        self.assertEqual(V213_FEED, result[2])
+        self.assertEqual(V213_FEED, result[1])
 
     def test_v220_feed_changes(self):
         """ Test v213_feed_changes """
-        result = upgrades.v220_feed_changes({}, V220_FEED, {}, False)
+        result = upgrades.v220_feed_changes(V220_FEED, {}, False)
         self.assertEqual('A discontinued feed "URLVir" has been found '
                          'as bot urlvir-hosts-collector. '
                          'The removed parser "URLVir" has been found '
                          'as bot urlvir-parser. '
                          'Remove affected bots yourself.',
                          result[0])
-        self.assertEqual(V220_FEED, result[2])
+        self.assertEqual(V220_FEED, result[1])
 
     def test_v221_feed_changes(self):
         """ Test v221_feeds_1 """
-        result = upgrades.v221_feed_changes({}, V221_FEED, {}, False)
+        result = upgrades.v221_feed_changes(V221_FEED, {}, False)
         self.assertTrue(result[0])
-        self.assertEqual(V221_FEED_OUT, result[2])
+        self.assertEqual(V221_FEED_OUT, result[1])
 
     def test_v221_feed_changes_2(self):
         """ Test v213_feed_changes """
-        result = upgrades.v221_feed_changes({}, V221_FEED_2, {}, False)
+        result = upgrades.v221_feed_changes(V221_FEED_2, {}, False)
         self.assertEqual('A discontinued feed "HP Hosts File" has been found '
                          'as bot hphosts-collector. '
                          'The removed parser "HP Hosts" has been found '
                          'as bot hphosts-parser. '
                          'Remove affected bots yourself.',
                          result[0])
-        self.assertEqual(V221_FEED_2, result[2])
+        self.assertEqual(V221_FEED_2, result[1])
 
     def test_v222_feed_changes(self):
         """ Test v222_feed_changes """
-        result = upgrades.v222_feed_changes({}, V222, {}, False)
+        result = upgrades.v222_feed_changes(V222, {}, False)
         self.assertTrue(result[0])
-        self.assertEqual(V222_OUT, result[2])
+        self.assertEqual(V222_OUT, result[1])
 
     def test_v230_csv_parser_parameter_fix(self):
         """ Test v230_feed_fix """
-        result = upgrades.v230_csv_parser_parameter_fix({}, V230_IN, {}, False)
+        result = upgrades.v230_csv_parser_parameter_fix(V230_IN, {}, False)
         self.assertTrue(result[0])
-        self.assertEqual(V230_OUT, result[2])
+        self.assertEqual(V230_OUT, result[1])
 
         # with also the new fixed parameter
-        result = upgrades.v230_csv_parser_parameter_fix({}, V230_IN_BOTH, {}, False)
+        result = upgrades.v230_csv_parser_parameter_fix(V230_IN_BOTH, {}, False)
         self.assertTrue(result[0])
-        self.assertEqual(V230_OUT, result[2])
+        self.assertEqual(V230_OUT, result[1])
 
         # with new parameter, no change
-        result = upgrades.v230_csv_parser_parameter_fix({}, V230_OUT, {}, False)
+        result = upgrades.v230_csv_parser_parameter_fix(V230_OUT, {}, False)
         self.assertIsNone(result[0])
-        self.assertEqual(V230_OUT, result[2])
+        self.assertEqual(V230_OUT, result[1])
 
     def test_v230_deprecations(self):
         """ Test v230_deprecations """
-        result = upgrades.v230_deprecations({}, V230_MALWAREDOMAINLIST_IN, {}, False)
+        result = upgrades.v230_deprecations(V230_MALWAREDOMAINLIST_IN, {}, False)
         self.assertTrue(result[0])
         self.assertEqual('A discontinued bot "Malware Domain List Parser" has been found as bot '
                          'malwaredomainlist-parser. Remove affected bots yourself.',
                          result[0])
-        self.assertEqual(V230_MALWAREDOMAINLIST_IN, result[2])
+        self.assertEqual(V230_MALWAREDOMAINLIST_IN, result[1])
 
     def test_v230_feed_changes(self):
         """ Test v230_feed_changes """
-        result = upgrades.v230_feed_changes({}, V230_MALWAREDOMAINLIST_IN, {}, False)
+        result = upgrades.v230_feed_changes(V230_MALWAREDOMAINLIST_IN, {}, False)
         self.assertTrue(result[0])
         self.assertEqual('A discontinued feed "Malware Domain List" has been found as bot '
                          'malwaredomainlist-collector. Remove affected bots yourself.',
                          result[0])
-        self.assertEqual(V230_MALWAREDOMAINLIST_IN, result[2])
+        self.assertEqual(V230_MALWAREDOMAINLIST_IN, result[1])
 
     def test_v233_feodotracker_browse(self):
         """ Test v233_feodotracker_browse """
-        result = upgrades.v233_feodotracker_browse({}, V233_FEODOTRACKER_BROWSE_IN, {}, False)
+        result = upgrades.v233_feodotracker_browse(V233_FEODOTRACKER_BROWSE_IN, {}, False)
         self.assertTrue(result[0])
-        self.assertEqual(V233_FEODOTRACKER_BROWSE_OUT, result[2])
+        self.assertEqual(V233_FEODOTRACKER_BROWSE_OUT, result[1])
+
+    def test_v301_feed_changes(self):
+        """ Test v301_feed_changes """
+        result = upgrades.v301_deprecations(V301_MALWAREDOMAINS_IN, {}, False)
+        self.assertTrue(result[0])
+        self.assertEqual('A discontinued bot "Malware Domains Parser" has been found as bot '
+                         'malwaredomains-parser. A discontinued bot "Malware Domains Collector" '
+                         'has been found as bot malwaredomains-collector. Remove affected bots yourself.',
+                         result[0])
+        self.assertEqual(V301_MALWAREDOMAINS_IN, result[1])
+
+    def test_v310_feed_changes(self):
+        """ Test v310_feed_changes """
+        result = upgrades.v310_feed_changes(V310_FEED_CHANGES, {}, False)
+        self.assertTrue(result[0])
+        self.assertEqual('A discontinued feed "Malc0de" has been found as bot '
+                         'malc0de-collector, malc0de-parser. '
+                         'A discontinued feed "Autoshun" has been found as bot '
+                         'autoshun-collector, autoshun-parser. Remove affected bots yourself.',
+                         result[0])
+        self.assertEqual(V310_FEED_CHANGES, result[1])
 
 
 for name in upgrades.__all__:

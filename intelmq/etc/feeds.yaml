@@ -96,24 +96,6 @@ providers:
       revision: 2018-01-20
       documentation: https://www.malwarepatrol.net/non-commercial/
       public: false
-  Malware Domains:
-    Malicious:
-      description: Malware Prevention through Domain Blocking (Black Hole DNS Sinkhole)
-      additional_information:
-      bots:
-        collector:
-          module: intelmq.bots.collectors.http.collector_http
-          parameters:
-            http_url: http://mirror1.malwaredomains.com/files/domains.txt
-            rate_limit: 172800
-            name: __FEED__
-            provider: __PROVIDER__
-        parser:
-          module: intelmq.bots.parsers.malwaredomains.parser
-          parameters:
-      revision: 2018-01-20
-      documentation: http://www.malwaredomains.com/
-      public: true
   ZoneH:
     Defacements:
       description: all the information contained in Zone-H's cybercrime archive were
@@ -471,7 +453,7 @@ providers:
         collector:
           module: intelmq.bots.collectors.http.collector_http
           parameters:
-            http_url: http://dataplane.org/sshclient.txt
+            http_url: https://dataplane.org/sshclient.txt
             rate_limit: 3600
             name: __FEED__
             provider: __PROVIDER__
@@ -479,7 +461,7 @@ providers:
           module: intelmq.bots.parsers.dataplane.parser
           parameters:
       revision: 2018-01-20
-      documentation: http://dataplane.org/
+      documentation: https://dataplane.org/
       public: true
     SSH Password Authentication:
       description: Entries below consist of fields with identifying characteristics
@@ -492,7 +474,7 @@ providers:
         collector:
           module: intelmq.bots.collectors.http.collector_http
           parameters:
-            http_url: http://dataplane.org/sshpwauth.txt
+            http_url: https://dataplane.org/sshpwauth.txt
             rate_limit: 3600
             name: __FEED__
             provider: __PROVIDER__
@@ -500,7 +482,7 @@ providers:
           module: intelmq.bots.parsers.dataplane.parser
           parameters:
       revision: 2018-01-20
-      documentation: http://dataplane.org/
+      documentation: https://dataplane.org/
       public: true
     SIP Query:
       description: Entries consist of fields with identifying characteristics of a
@@ -513,7 +495,7 @@ providers:
         collector:
           module: intelmq.bots.collectors.http.collector_http
           parameters:
-            http_url: http://dataplane.org/sipquery.txt
+            http_url: https://dataplane.org/sipquery.txt
             rate_limit: 3600
             name: __FEED__
             provider: __PROVIDER__
@@ -521,7 +503,7 @@ providers:
           module: intelmq.bots.parsers.dataplane.parser
           parameters:
       revision: 2018-01-20
-      documentation: http://dataplane.org/
+      documentation: https://dataplane.org/
       public: true
     SIP Registration:
       description: Entries consist of fields with identifying characteristics of a
@@ -534,7 +516,7 @@ providers:
         collector:
           module: intelmq.bots.collectors.http.collector_http
           parameters:
-            http_url: http://dataplane.org/sipregistration.txt
+            http_url: https://dataplane.org/sipregistration.txt
             rate_limit: 3600
             name: __FEED__
             provider: __PROVIDER__
@@ -542,7 +524,173 @@ providers:
           module: intelmq.bots.parsers.dataplane.parser
           parameters:
       revision: 2018-01-20
-      documentation: http://dataplane.org/
+      documentation: https://dataplane.org/
+      public: true
+    DNS Recursion Desired:
+      description: Entries consist of fields with identifying characteristics of a
+        source IP address that has been seen performing a DNS recursion desired query
+        to a remote host. This report lists hosts that are suspicious of more than just
+        port scanning. The host may be DNS server cataloging or searching for hosts
+        to use for DNS-based DDoS amplification.
+      additional_information:
+      bots:
+        collector:
+          module: intelmq.bots.collectors.http.collector_http
+          parameters:
+            http_url: https://dataplane.org/dnsrd.txt
+            rate_limit: 3600
+            name: __FEED__
+            provider: __PROVIDER__
+        parser:
+          module: intelmq.bots.parsers.dataplane.parser
+          parameters:
+      revision: 2021-09-09
+      documentation: https://dataplane.org/
+      public: true
+    DNS Recursion Desired ANY:
+      description: Entries consist of fields with identifying characteristics of a
+        source IP address that has been seen performing a DNS recursion desired IN ANY query
+        to a remote host. This report lists hosts that are suspicious of more than just
+        port scanning. The host may be DNS server cataloging or searching for hosts
+        to use for DNS-based DDoS amplification.
+      additional_information:
+      bots:
+        collector:
+          module: intelmq.bots.collectors.http.collector_http
+          parameters:
+            http_url: https://dataplane.org/dnsrdany.txt
+            rate_limit: 3600
+            name: __FEED__
+            provider: __PROVIDER__
+        parser:
+          module: intelmq.bots.parsers.dataplane.parser
+          parameters:
+      revision: 2021-09-09
+      documentation: https://dataplane.org/
+      public: true
+    DNS Version:
+      description: Entries consist of fields with identifying characteristics of a
+        source IP address that has been seen performing a DNS CH TXT version.bind query
+        to a remote host. This report lists hosts that are suspicious of more than just
+        port scanning. The host may be DNS server cataloging or searching for vulnerable
+        DNS servers.
+      additional_information:
+      bots:
+        collector:
+          module: intelmq.bots.collectors.http.collector_http
+          parameters:
+            http_url: https://dataplane.org/dnsversion.txt
+            rate_limit: 3600
+            name: __FEED__
+            provider: __PROVIDER__
+        parser:
+          module: intelmq.bots.parsers.dataplane.parser
+          parameters:
+      revision: 2021-09-09
+      documentation: https://dataplane.org/
+      public: true
+    Protocol 41:
+      description: Entries consist of fields with identifying characteristics of a
+        host that has been detected to offer open IPv6 over IPv4 tunneling.
+        This could allow for the host to be used a public proxy against IPv6 hosts.
+      additional_information:
+      bots:
+        collector:
+          module: intelmq.bots.collectors.http.collector_http
+          parameters:
+            http_url: https://dataplane.org/proto41.txt
+            rate_limit: 3600
+            name: __FEED__
+            provider: __PROVIDER__
+        parser:
+          module: intelmq.bots.parsers.dataplane.parser
+          parameters:
+      revision: 2021-09-09
+      documentation: https://dataplane.org/
+      public: true
+    SMTP Greet:
+      description: Entries consist of fields with identifying characteristics of a
+        host that has been seen initiating a SMTP HELO/EHLO operation to a remote host.
+        The source report lists hosts that are suspicious of more than just port
+        scanning. The host may be SMTP server cataloging or conducting various forms
+        of email abuse.
+      additional_information:
+      bots:
+        collector:
+          module: intelmq.bots.collectors.http.collector_http
+          parameters:
+            http_url: https://dataplane.org/smtpgreet.txt
+            rate_limit: 3600
+            name: __FEED__
+            provider: __PROVIDER__
+        parser:
+          module: intelmq.bots.parsers.dataplane.parser
+          parameters:
+      revision: 2021-09-09
+      documentation: https://dataplane.org/
+      public: true
+    SMTP Data:
+      description: Entries consist of fields with identifying characteristics of a
+        host that has been seen initiating a SMTP DATA operation to a remote host.
+        The source report lists hosts that are suspicious of more than just port
+        scanning. The host may be SMTP server cataloging or conducting various forms
+        of email abuse.
+      additional_information:
+      bots:
+        collector:
+          module: intelmq.bots.collectors.http.collector_http
+          parameters:
+            http_url: https://dataplane.org/smtpdata.txt
+            rate_limit: 3600
+            name: __FEED__
+            provider: __PROVIDER__
+        parser:
+          module: intelmq.bots.parsers.dataplane.parser
+          parameters:
+      revision: 2021-09-09
+      documentation: https://dataplane.org/
+      public: true
+    Telnet Login:
+      description: Entries consist of fields with identifying characteristics of a
+        host that has been seen initiating a telnet connection to a remote host.
+        The source report lists hosts that are suspicious of more than just port
+        scanning. The host may be telnet server cataloging or conducting
+        authentication attack attempts.
+      additional_information:
+      bots:
+        collector:
+          module: intelmq.bots.collectors.http.collector_http
+          parameters:
+            http_url: https://dataplane.org/telnetlogin.txt
+            rate_limit: 3600
+            name: __FEED__
+            provider: __PROVIDER__
+        parser:
+          module: intelmq.bots.parsers.dataplane.parser
+          parameters:
+      revision: 2021-09-09
+      documentation: https://dataplane.org/
+      public: true
+    VNC/RFB Login:
+      description: Entries consist of fields with identifying characteristics of a
+        host that has been seen initiating a VNC remote buffer session to a remote host.
+        The source report lists hosts that are suspicious of more than just port
+        scanning. The host may be VNC/RFB server cataloging or conducting
+        authentication attack attempts.
+      additional_information:
+      bots:
+        collector:
+          module: intelmq.bots.collectors.http.collector_http
+          parameters:
+            http_url: https://dataplane.org/vncrfb.txt
+            rate_limit: 3600
+            name: __FEED__
+            provider: __PROVIDER__
+        parser:
+          module: intelmq.bots.parsers.dataplane.parser
+          parameters:
+      revision: 2021-09-09
+      documentation: https://dataplane.org/
       public: true
   Turris:
     Greylist:
@@ -632,60 +780,6 @@ providers:
       revision: 2018-01-20
       documentation: https://project.turris.cz/en/greylist
       public: true
-  Malc0de:
-    Bind Format:
-      description: This feed includes FQDN's of malicious hosts, the file format is
-        in Bind file format.
-      additional_information:
-      bots:
-        collector:
-          module: intelmq.bots.collectors.http.collector_http
-          parameters:
-            http_url: https://malc0de.com/bl/ZONES
-            rate_limit: 10800
-            name: __FEED__
-            provider: __PROVIDER__
-        parser:
-          module: intelmq.bots.parsers.malc0de.parser
-          parameters:
-      revision: 2018-01-20
-      documentation: http://malc0de.com/dashboard/
-      public: true
-    Windows Format:
-      description: This feed includes FQDN's of malicious hosts, the file format is
-        in Windows Hosts file format.
-      additional_information:
-      bots:
-        collector:
-          module: intelmq.bots.collectors.http.collector_http
-          parameters:
-            http_url: https://malc0de.com/bl/BOOT
-            rate_limit: 10800
-            name: __FEED__
-            provider: __PROVIDER__
-        parser:
-          module: intelmq.bots.parsers.malc0de.parser
-          parameters:
-      revision: 2018-01-20
-      documentation: http://malc0de.com/dashboard/
-      public: true
-    IP Blacklist:
-      description: This feed includes IP Addresses of malicious hosts.
-      additional_information:
-      bots:
-        collector:
-          module: intelmq.bots.collectors.http.collector_http
-          parameters:
-            http_url: https://malc0de.com/bl/IP_Blacklist.txt
-            rate_limit: 10800
-            name: __FEED__
-            provider: __PROVIDER__
-        parser:
-          module: intelmq.bots.parsers.malc0de.parser
-          parameters:
-      revision: 2018-01-20
-      documentation: http://malc0de.com/dashboard/
-      public: true
   University of Toulouse:
     Blacklist:
       description: Various blacklist feeds
@@ -708,24 +802,6 @@ providers:
       revision: 2018-01-20
       documentation: https://dsi.ut-capitole.fr/blacklists/
       public: true
-  Autoshun:
-    Shunlist:
-      description: You need to register in order to use the list.
-      additional_information:
-      bots:
-        collector:
-          module: intelmq.bots.collectors.http.collector_http
-          parameters:
-            http_url: https://www.autoshun.org/download/?api_key=__APIKEY__&format=html
-            rate_limit: 3600
-            name: __FEED__
-            provider: __PROVIDER__
-        parser:
-          module: intelmq.bots.parsers.autoshun.parser
-          parameters:
-      revision: 2018-01-20
-      documentation: https://www.autoshun.org/
-      public: false
   Danger Rulez:
     Bruteforce Blocker:
       description: Its main purpose is to block SSH bruteforce attacks via firewall.
@@ -1569,9 +1645,9 @@ providers:
       revision: 2018-05-29
       documentation: https://docs.microsoft.com/en-us/security/gsp/informationsharingandexchange
       public: false
-    CTIP via Interflow:
+    CTIP Infected via Interflow:
       description: Collects the CTIP Infected feed (Sinkhole data for your country) files from the Interflow API.The feed is available via Microsoft’s Government Security Program (GSP).
-      additional_information: Depending on the file sizes you may need to increase the parameter 'http_timeout_sec' of the collector. As many IPs occur very often in the data, you may want to use a deduplicator specifically for the feed.
+      additional_information: Depending on the file sizes you may need to increase the parameter 'http_timeout_sec' of the collector. As many IPs occur very often in the data, you may want to use a deduplicator specifically for the feed. More information about the feed can be found on www.dcuctip.com after login with your GSP account.
       bots:
         collector:
           module: intelmq.bots.collectors.microsoft.collector_interflow
@@ -1587,11 +1663,11 @@ providers:
           module: intelmq.bots.parsers.microsoft.parser_ctip
           parameters:
       revision: 2018-03-06
-      documentation: https://docs.microsoft.com/en-us/security/gsp/informationsharingandexchange
+      documentation: https://docs.microsoft.com/en-us/security/gsp/informationsharingandexchange http://www.dcuctip.com/
       public: false
     CTIP Infected via Azure:
       description: Collects the CTIP (Sinkhole data) from a shared Azure Storage. The feed is available via Microsoft’s Government Security Program (GSP).
-      additional_information: The cache is needed for memorizing which files have already been processed, the TTL should be higher than the oldest file available in the storage (currently the last three days are available). The connection string contains endpoint as well as authentication information.
+      additional_information: The cache is needed for memorizing which files have already been processed, the TTL should be higher than the oldest file available in the storage (currently the last three days are available). The connection string contains endpoint as well as authentication information. As many IPs occur very often in the data, you may want to use a deduplicator specifically for the feed. More information about the feed can be found on www.dcuctip.com after login with your GSP account.
       bots:
         collector:
           module: intelmq.bots.collectors.microsoft.collector_azure
@@ -1608,8 +1684,8 @@ providers:
         parser:
           module: intelmq.bots.parsers.microsoft.parser_ctip
           parameters:
-      revision: 2020-05-29
-      documentation: https://docs.microsoft.com/en-us/security/gsp/informationsharingandexchange
+      revision: 2022-06-01
+      documentation: https://docs.microsoft.com/en-us/security/gsp/informationsharingandexchange http://www.dcuctip.com/
       public: false
     CTIP C2 via Azure:
       description: Collects the CTIP C2 feed from a shared Azure Storage. The feed is available via Microsoft’s Government Security Program (GSP).
@@ -1732,27 +1808,26 @@ providers:
     Enterprise Callback:
       description: With the Enterprise Subscription of 'Have I Been Pwned' you are able to provide a callback URL and any new leak data is submitted to it. It is recommended to put a webserver with Authorization check, TLS etc. in front of the API collector.
       additional_information: |
-        "A minimal nginx configuration could look like:
-        ```
-        server {
-            listen 443 ssl http2;
-            server_name [your host name];
-            client_max_body_size 50M;
-            
-            ssl_certificate [path to your key];
-            ssl_certificate_key [path to your certificate];
-            
-            location /[your private url] {
-                 if ($http_authorization != '[your private password]') {
-                     return 403;
-                 }
-                 proxy_pass http://localhost:5001/intelmq/push;
-                 proxy_read_timeout 30;
-                 proxy_connect_timeout 30;
-             }
-        }
-        ```
-        "
+        A minimal nginx configuration could look like:
+            .. code-block::
+
+                  server {
+                      listen 443 ssl http2;
+                      server_name [your host name];
+                      client_max_body_size 50M;
+                      
+                      ssl_certificate [path to your key];
+                      ssl_certificate_key [path to your certificate];
+                      
+                      location /[your private url] {
+                           if ($http_authorization != '[your private password]') {
+                               return 403;
+                           }
+                           proxy_pass http://localhost:5001/intelmq/push;
+                           proxy_read_timeout 30;
+                           proxy_connect_timeout 30;
+                       }
+                  }
       bots:
         collector:
           module: intelmq.bots.collectors.api.collector_api
@@ -1775,8 +1850,7 @@ providers:
         collector:
           module: intelmq.bots.collectors.github_api.collector_github_contents_api
           parameters:
-            basic_auth_username: USERNAME
-            basic_auth_password: PASSWORD
+            personal_access_token: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token
             repository: StrangerealIntel/DailyIOC
             regex: .*.json
         parser:

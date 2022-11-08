@@ -15,7 +15,7 @@ Migration to ParserBot does not make sense, as there's only one event per report
 import json
 
 from intelmq.lib import utils
-from intelmq.lib.bot import Bot
+from intelmq.lib.bot import ParserBot
 from intelmq.lib.harmonization import DateTime
 
 MAP_geo_env_remote_addr = {"country_code": 'source.geolocation.cc',
@@ -29,7 +29,7 @@ MAP_geo_env_remote_addr = {"country_code": 'source.geolocation.cc',
                            }
 
 
-class AnubisNetworksParserBot(Bot):
+class AnubisNetworksParserBot(ParserBot):
     """Parse single JSON-events from AnubisNetworks Cyberfeed stream"""
     use_malware_familiy_as_classification_identifier = True
 
@@ -87,7 +87,7 @@ class AnubisNetworksParserBot(Bot):
                     if k in value:
                         event[v] = value[k]
                 if "ip" in value and "netmask" in value:
-                    event.add('source.network', '%s/%s' % (value["ip"], value["netmask"]))
+                    event.add('source.network', '{}/{}'.format(value["ip"], value["netmask"]))
             elif key == 'qtype':
                 event['extra.dns_query_type'] = value
             elif key == 'app_proto':
@@ -141,9 +141,7 @@ class AnubisNetworksParserBot(Bot):
                                 raise ValueError("Unable to parse data field comm.http.%r. Please report this as bug." % subsubkey)
                         try:
                             event.add('destination.url',
-                                      '%s://%s%s' % (value['proto'],
-                                                     subvalue['host'],
-                                                     subvalue['path']))
+                                      f"{value['proto']}://{subvalue['host']}{subvalue['path']}")
                         except KeyError:
                             pass
                     elif subkey == 'dns':
@@ -195,8 +193,9 @@ class AnubisNetworksParserBot(Bot):
                     raise ValueError('_geo_tracking_last_ip.path is not \'comm.http.host\' (%r).'
                                      ''  % subvalue)
             elif key.startswith('_geo_comm_http_x_forwarded_for_'):
+                key = key.replace('#', '')
                 event = self.parse_geo(event, value,
-                                       'extra.communication.http.%s' % key[15:],
+                                       'communication.http.%s' % key[15:],
                                        raw_report, '_geo_comm_http_x_forwarded_for_')
             elif key in ["_origin", "_provider", "pattern_verified"]:
                 event['extra.%s' % key] = value
@@ -219,7 +218,7 @@ class AnubisNetworksParserBot(Bot):
             elif subkey == "netmask":
                 event = self.event_add_fallback(event,
                                                 '%s.network' % namespace,
-                                                '%s/%s' % (value['ip'], subvalue))
+                                                '{}/{}'.format(value['ip'], subvalue))
             elif subkey == 'country_code':
                 event = self.event_add_fallback(event,
                                                 '%s.geolocation.cc' % namespace,
@@ -231,7 +230,7 @@ class AnubisNetworksParserBot(Bot):
             elif subkey in ('region_code', 'postal_code', "region", "city",
                             "latitude", "longitude", "dma_code", "area_code",
                             "metro_code"):
-                event = self.event_add_fallback(event, '%s.geolocation.%s' % (namespace, subkey), subvalue)
+                event = self.event_add_fallback(event, f'{namespace}.geolocation.{subkey}', subvalue)
             elif subkey == 'asn':
                 event = self.event_add_fallback(event, '%s.asn' % namespace, subvalue)
             elif subkey == 'asn_name':

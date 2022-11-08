@@ -10,11 +10,11 @@ import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from intelmq.lib.bot import Bot
+from intelmq.lib.bot import OutputBot
 from typing import Optional
 
 
-class SMTPOutputBot(Bot):
+class SMTPOutputBot(OutputBot):
     """Send single events as CSV attachment in dynamically formatted e-mails via SMTP"""
     fieldnames: str = "classification.taxonomy,classification.type,classification.identifier,source.ip,source.asn,source.port"
     mail_from: str = "cert@localhost"
@@ -70,7 +70,9 @@ class SMTPOutputBot(Bot):
             if self.text is not None:
                 msg.attach(MIMEText(self.text.format(ev=event)))
             if self.fieldnames:
-                msg.attach(MIMEText(attachment, 'csv'))
+                mime_attachment = MIMEText(attachment, 'csv')
+                mime_attachment.add_header("Content-Disposition", "attachment", filename="events.csv")
+                msg.attach(mime_attachment)
             msg['Subject'] = self.subject.format(ev=event)
             msg['From'] = self.mail_from.format(ev=event)
             msg['To'] = self.mail_to.format(ev=event)

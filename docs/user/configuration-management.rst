@@ -36,6 +36,8 @@ You need to enable and start Redis if not already done. Using systemd it can be 
 Configuration
 *************
 
+.. _configuration-paths:
+
 /opt and LSB paths
 ==================
 
@@ -129,12 +131,15 @@ Miscellaneous
     * **false** - duplicates the messages into each queue
     * When using AMQP as message broker, take a look at the :ref:`multithreading` section and the ``instances_threads`` parameter.
 
-* **broker** - select which broker intelmq can use. Use the following values:
-    * **redis** - Redis allows some persistence but is not so fast as ZeroMQ (in development). But note that persistence has to be manually activated. See http://redis.io/topics/persistence
-
 * **rate_limit** - time interval (in seconds) between messages processing.  int value.
 
 * **ssl_ca_certificate** - trusted CA certificate for IMAP connections (supported by some bots).
+
+* **source_pipeline_broker** & **destination_pipeline_broker** - select which broker IntelMQ should use. There are two options
+    * **redis** (default) - Please note that persistence has to be `manually activated <http://redis.io/topics/persistence>`_.
+    * **amqp** - The AMQP pipeline is currently beta but there are no known issues. A popular AMQP broker is `RabbitMQ <https://www.rabbitmq.com/>`_. See :ref:`aqmp pipeline broker` for more details.
+
+  * As these parameters can be set per bot, this allows usage of different broker systems and hosts, as well as switching between them on the same IntelMQ instance.
 
 * **source_pipeline_host** - broker IP, FQDN or Unix socket that the bot will use to connect and receive messages.
 
@@ -203,7 +208,7 @@ After this it is possible to manage bots like before with ``intelmqctl`` command
 Runtime Configuration
 *********************
 
-This configuration is used by each bot to load its specific (runtime) parameters. You can use the output of ``intelmqctl --type json list bots`` to write the ``runtime.conf``. Also, the IntelMQ Manager generates this configuration. You may edit it manually as well. Be sure to re-load the bot (see the :doc:`intelmqctl`).
+This configuration is used by each bot to load its specific (runtime) parameters. The IntelMQ Manager can generate this configuration for you. You may edit it manually as well. Be sure to re-load the bot (see the :doc:`intelmqctl`).
 
 **Template:**
 
@@ -223,14 +228,14 @@ This configuration is used by each bot to load its specific (runtime) parameters
 
 .. code-block:: yaml
 
-   malware-domain-list-collector:
+   blocklistde-apache-collector:
      group: Collector
-     name: Malware Domain List
+     name: Blocklist.de Apache List
      module: intelmq.bots.collectors.http.collector_http
-     description: Malware Domain List Collector is the bot responsible to get the report from source of information.
+     description: Blocklist.de Apache Collector fetches all IP addresses which have been reported within the last 48 hours as having run attacks on the service Apache, Apache-DDOS, RFI-Attacks.
      parameters:
-       http_url: http://www.malwaredomainlist.com/updatescsv.php
-       feed: Malware Domain List
+       http_url: https://lists.blocklist.de/lists/apache.txt
+       name: Blocklist.de Apache
        rate_limit: 3600
 
 More examples can be found in the ``intelmq/etc/runtime.conf`` directory. See :doc:`bots` for more details.
@@ -239,16 +244,16 @@ By default, all of the bots are started when you start the whole botnet, however
 
 .. code-block:: yaml
 
-    malware-domain-list-collector:
-      group: Collector
-      name: Malware Domain List
-      module: intelmq.bots.collectors.http.collector_http
-      description: Malware Domain List Collector is the bot responsible to get the report from source of information.
-      enabled: false,
-      parameters:
-        http_url: http://www.malwaredomainlist.com/updatescsv.php
-        feed: Malware Domain List
-        rate_limit: 3600
+   blocklistde-apache-collector:
+     group: Collector
+     name: Blocklist.de Apache List
+     module: intelmq.bots.collectors.http.collector_http
+     description: Blocklist.de Apache Collector fetches all IP addresses which have been reported within the last 48 hours as having run attacks on the service Apache, Apache-DDOS, RFI-Attacks.
+     enabled: false
+     parameters:
+       http_url: https://lists.blocklist.de/lists/apache.txt
+       name: Blocklist.de Apache
+       rate_limit: 3600
 
 Pipeline Configuration
 ======================
@@ -289,6 +294,8 @@ In this case, bot will be able to send the message to one of defined paths. The 
 In case of errors during processing, and the optional path ``"_on_error"`` is specified, the message will be sent to the pipelines given given as on-error.
 Other destination queues can be explicitly addressed by the bots, e.g. bots with filtering capabilities. Some expert bots are capable of sending messages to paths, this feature is explained in their documentation, e.g. the :ref:`intelmq.bots.experts.filter.expert` expert and the :ref:`intelmq.bots.experts.sieve.expert` expert.
 The named queues need to be explicitly addressed by the bot (e.g. filtering) or the core (``_on_error``) to be used. Setting arbitrary paths has no effect.
+
+.. _aqmp pipeline broker:
 
 AMQP (Beta)
 -----------

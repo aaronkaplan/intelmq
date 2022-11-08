@@ -14,7 +14,7 @@ import pathlib
 import requests
 import tarfile
 
-from intelmq.lib.bot import Bot
+from intelmq.lib.bot import ExpertBot
 from intelmq.lib.exceptions import MissingDependencyError
 from intelmq.lib.utils import get_bots_settings, create_request_session
 from intelmq.bin.intelmqctl import IntelMQController
@@ -25,12 +25,13 @@ except ImportError:
     geoip2 = None
 
 
-class GeoIPExpertBot(Bot):
+class GeoIPExpertBot(ExpertBot):
     """Add geolocation information from a local MaxMind database to events (country, city, longitude, latitude)"""
     database: str = "/opt/intelmq/var/lib/bots/maxmind_geoip/GeoLite2-City.mmdb"  # TODO: should be pathlib.Path
     license_key: str = "<insert Maxmind license key>"
     overwrite: bool = False
     use_registered: bool = False
+    autoupdate_cached_database: bool = True  # Activate/deactivate update-database functionality
 
     def init(self):
         if geoip2 is None:
@@ -38,7 +39,7 @@ class GeoIPExpertBot(Bot):
 
         try:
             self.database = geoip2.database.Reader(self.database)
-        except IOError:
+        except OSError:
             self.logger.exception("GeoIP Database does not exist or could not "
                                   "be accessed in %r.",
                                   self.database)
@@ -94,7 +95,7 @@ class GeoIPExpertBot(Bot):
             parsed_args = cls._create_argparser().parse_args()
 
         if parsed_args.update_database:
-            cls.update_database()
+            cls.update_database(verbose=parsed_args.verbose)
 
         else:
             super().run(parsed_args=parsed_args)
@@ -103,21 +104,22 @@ class GeoIPExpertBot(Bot):
     def _create_argparser(cls):
         argparser = super()._create_argparser()
         argparser.add_argument("--update-database", action='store_true', help='downloads latest database data')
+        argparser.add_argument("--verbose", action='store_true', help='be verbose')
         return argparser
 
     @classmethod
-    def update_database(cls):
+    def update_database(cls, verbose=False):
         bots = {}
         license_key = None
         runtime_conf = get_bots_settings()
         try:
             for bot in runtime_conf:
-                if runtime_conf[bot]["module"] == __name__:
+                if runtime_conf[bot]["module"] == __name__ and runtime_conf[bot]['parameters'].get('autoupdate_cached_database', True):
                     license_key = runtime_conf[bot]["parameters"]["license_key"]
                     bots[bot] = runtime_conf[bot]["parameters"]["database"]
 
         except KeyError as e:
-            error = "Database update failed. Your configuration of {0} is missing key {1}.".format(bot, e)
+            error = f"Database update failed. Your configuration of {bot} is missing key {e}."
             if str(e) == "'license_key'":
                 error += "\n"
                 error += "Since December 30, 2019 you need to register for a free license key to access GeoLite2 database.\n"
@@ -127,7 +129,8 @@ class GeoIPExpertBot(Bot):
                 sys.exit(error)
 
         if not bots:
-            print("Database update skipped. No bots of type {0} present in runtime.conf.".format(__name__))
+            if verbose:
+                print(f"Database update skipped. No bots of type {__name__} present in runtime.conf or database update disabled with parameter 'autoupdate_cached_database'.")
             sys.exit(0)
 
         # we only need to import now, if there are no maxmind_geoip bots, this dependency does not need to be installed
@@ -139,7 +142,8 @@ class GeoIPExpertBot(Bot):
                                                          "is a dependency for the required geoip2 package.")
 
         try:
-            print("Downloading the latest database update...")
+            if verbose:
+                print("Downloading the latest database update...")
             session = create_request_session()
             response = session.get("https://download.maxmind.com/app/geoip_download",
                                    params={
@@ -148,14 +152,14 @@ class GeoIPExpertBot(Bot):
                                        "suffix": "tar.gz"
                                    })
         except requests.exceptions.RequestException as e:
-            sys.exit("Database update failed. Connection Error: {0}".format(e))
+            sys.exit(f"Database update failed. Connection Error: {e}")
 
         if response.status_code == 401:
             sys.exit("Database update failed. Your license key is invalid.")
 
         if response.status_code != 200:
-            sys.exit("Database update failed. Server responded: {0}.\n"
-                     "URL: {1}".format(response.status_code, response.url))
+            sys.exit("Database update failed. Server responded: {}.\n"
+                     "URL: {}".format(response.status_code, response.url))
 
         database_data = None
 
@@ -179,7 +183,8 @@ class GeoIPExpertBot(Bot):
             with open(database_path, "wb") as database:
                 database.write(database_data._buffer)
 
-        print("Database updated. Reloading affected bots.")
+        if verbose:
+            print("Database updated. Reloading affected bots.")
 
         ctl = IntelMQController()
         for bot in bots.keys():

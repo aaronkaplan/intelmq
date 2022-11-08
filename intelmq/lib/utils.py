@@ -45,12 +45,13 @@ import dateutil.parser
 from dateutil.relativedelta import relativedelta
 from termstyle import red
 from ruamel.yaml import YAML
+from ruamel.yaml.scanner import ScannerError
 
 import intelmq
 from intelmq.lib.exceptions import DecodingError
 from intelmq import RUNTIME_CONF_FILE
 
-yaml = YAML(typ="safe", pure=True)
+yaml = YAML(typ="unsafe", pure=True)
 
 __all__ = ['base64_decode', 'base64_encode', 'decode', 'encode',
            'load_configuration', 'load_parameters', 'log', 'parse_logline',
@@ -79,7 +80,7 @@ SYSLOG_REGEX = (r'^(?P<date>\w{3} \d{2} \d{2}:\d{2}:\d{2}) (?P<hostname>[-\.\w]+
 RESPONSE_FILENAME = re.compile("filename=(.+)")
 
 
-class Parameters(object):
+class Parameters:
     pass
 
 
@@ -212,8 +213,14 @@ def load_configuration(configuration_filepath: str) -> dict:
         ValueError: if file not found
     """
     if os.path.exists(configuration_filepath):
-        with open(configuration_filepath, 'r') as fpconfig:
-            config = yaml.load(fpconfig)
+        with open(configuration_filepath) as fpconfig:
+            try:
+                config = yaml.load(fpconfig)
+            except ScannerError as exc:
+                if "found character '\\t' that cannot start any token" in exc.problem:
+                    fpconfig.seek(0)
+                    return json.load(fpconfig)
+                raise
     else:
         raise ValueError('File not found: %r.' % configuration_filepath)
     return config
@@ -373,7 +380,7 @@ def log(name: str, log_path: Union[str, bool] = intelmq.DEFAULT_LOGGING_PATH,
         logging_level_stream = log_level
 
     if log_path and not syslog:
-        handler = RotatingFileHandler("%s/%s.log" % (log_path, name),
+        handler = RotatingFileHandler(f"{log_path}/{name}.log",
                                       maxBytes=log_max_size if log_max_size else 0,
                                       backupCount=log_max_copies)
         handler.setLevel(log_level)
@@ -609,7 +616,7 @@ def unzip(file: bytes, extract_files: Union[bool, list], logger=None,
                 if filename in extract_files)
 
 
-class RewindableFileHandle(object):
+class RewindableFileHandle:
     """
     Can be used for easy retrieval of last input line to populate raw field
     during CSV parsing.
@@ -661,7 +668,7 @@ def seconds_to_human(seconds: int, precision: int = 0) -> str:
     result = []
     for frame in ('days', 'hours', 'minutes', 'seconds'):
         if getattr(relative, frame):
-            result.append('%.{}f%s'.format(precision) % (getattr(relative, frame), frame[0]))
+            result.append(f'%.{precision}f%s' % (getattr(relative, frame), frame[0]))
     return ' '.join(result)
 
 
@@ -869,7 +876,7 @@ def list_all_bots() -> dict:
 
             bots[file.parts[2].capitalize()[:-1]][name] = {
                 "module": mod.__name__,
-                "description": "Missing description" if not getattr(mod.BOT, '__doc__', None) else textwrap.dedent(mod.BOT.__doc__),
+                "description": "Missing description" if not getattr(mod.BOT, '__doc__', None) else textwrap.dedent(mod.BOT.__doc__).strip(),
                 "parameters": keys,
             }
     return bots

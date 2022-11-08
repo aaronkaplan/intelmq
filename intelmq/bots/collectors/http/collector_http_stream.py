@@ -7,15 +7,15 @@
 HTTP collector bot
 
 Parameters:
-http_url: string
-http_header: dictionary
-    default: {}
-http_verify_cert: boolean
-    default: True
-http_username, http_password: string
-http_proxy, https_proxy: string
-strip_lines: boolean
-http_timeout_sec: tuple of two floats or float
+    http_url: string
+    http_header: dictionary
+        default: {}
+    http_verify_cert: boolean
+        default: True
+    http_username, http_password: string
+    http_proxy, https_proxy: string
+    strip_lines: boolean
+    http_timeout_sec: tuple of two floats or float
 """
 
 from http.client import IncompleteRead
@@ -23,8 +23,9 @@ from urllib3.exceptions import ProtocolError, ReadTimeoutError
 
 from intelmq.lib.bot import CollectorBot
 from intelmq.lib.mixins import HttpMixin
-from intelmq.lib.utils import decode, create_request_session
-from intelmq.lib.exceptions import MissingDependencyError
+from intelmq.lib.utils import decode
+
+import requests.exceptions
 
 
 class HTTPStreamCollectorBot(CollectorBot, HttpMixin):
@@ -73,12 +74,12 @@ class HTTPStreamCollectorBot(CollectorBot, HttpMixin):
                     IncompleteRead,
                     ReadTimeoutError) as exc:
                 self.__error_count += 1
-                if (self.__error_count > self.parameters.error_max_retries):
+                if (self.__error_count > self.error_max_retries):
                     self.__error_count = 0
                     raise
                 else:
                     self.logger.info('Got exception %r, retrying (consecutive error count %d <= %d).',
-                                     exc, self.__error_count, self.parameters.error_max_retries)
+                                     exc, self.__error_count, self.error_max_retries)
 
             self.logger.info('Stream stopped.')
 

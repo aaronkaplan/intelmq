@@ -15,7 +15,7 @@ field: field from IntelMQ message to extract (e.g. destination.ip)
 
 """
 
-from intelmq.lib.bot import Bot
+from intelmq.lib.bot import OutputBot
 from intelmq.lib.exceptions import MissingDependencyError
 
 try:
@@ -24,7 +24,7 @@ except ImportError:
     ESM = None
 
 
-class ESMIPOutputBot(Bot):
+class ESMIPOutputBot(OutputBot):
     """
     Write events to the McAfee Enterprise Security Manager (ESM)
 
@@ -43,7 +43,7 @@ class ESMIPOutputBot(Bot):
 
         self.esm = ESM()
         try:
-            self.esm.login(self.parameters.esm_ip, self.parameters.esm_user, self.parameters.esm_password)
+            self.esm.login(self.esm_ip, self.esm_user, self.esm_password)
         except Exception:
             raise ValueError('Could not Login to ESM.')
 
@@ -53,7 +53,7 @@ class ESMIPOutputBot(Bot):
             retVal = self.esm.post('sysGetWatchlists?hidden=false&dynamic=false&writeOnly=false&indexedOnly=false',
                                    watchlist_filter)
             for WL in retVal:
-                if (WL['name'] == self.parameters.esm_watchlist):
+                if (WL['name'] == self.esm_watchlist):
                     self.watchlist_id = WL['id']
         except TypeError:
             self.logger.error('Watchlist not found. Please verify name of the watchlist.')
@@ -64,7 +64,7 @@ class ESMIPOutputBot(Bot):
         self.logger.info('Message received.')
         try:
             self.esm.post('sysAddWatchlistValues', {'watchlist': {'value': self.watchlist_id},
-                                                    'values': '["' + event.get(self.parameters.field) + '"]'},
+                                                    'values': '["' + event.get(self.field) + '"]'},
                           raw=True)
             self.logger.info('ESM Watchlist updated')
             self.acknowledge_message()
