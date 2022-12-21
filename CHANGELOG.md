@@ -35,8 +35,11 @@ CHANGELOG
     - Previously the dumped message was always the last message of a report if the report contained multiple lines leading to data-loss.
 - `intelmq.lib.pipeline`:
   - Changed `BRPOPLPUSH` to `BLMOVE`, because `BRPOPLPUSH` has been marked as deprecated by redis in favor of `BLMOVE` (PR#2149 by Sebastian Waldbauer, fixes #1827)
+- `intelmq.lib.utils`:
+  - Added wrapper `resolve_dns` for querying DNS, with the support for recommended methods from `dnspython` package in versions 1 and 2.
 
 ### Development
+- Removed Python 3.6 from CI.
 
 ### Data Format
 
@@ -88,6 +91,9 @@ CHANGELOG
 - `intelmq.bots.parsers.cymru.parser_cap_program`: The parser mapped the hostname into `source.fqdn` which is not allowed by the IntelMQ Data Format. Added a check (PR#2215 by Sebastian Waldbauer, fixes #2169)
 - `intelmq.bots.parsers.generic.parser_csv`: Use RewindableFileHandle to use the original current line for line recovery (PR#2192 by Sebastian Wagner).
 - `intelmq.bots.parsers.autoshun.parser`: Removed, as the feed is discontinued (PR#2214 by Sebastian Waldbauer, fixes #2162).
+- `intelmq.bots.parsers.openphish.parser_commercial`: Refactored complete code (PR#2160 by Filip Pokorný).
+  - Fixes wrong mapping of `host` field to `source.fqdn` when the content was in IP address.
+  - Adds newly added fields in the feed.
 
 #### Experts
 - `intelmq.bots.experts.domain_valid`: New bot for checking domain's validity (PR#1966 by Marius Karotkis).
@@ -112,8 +118,10 @@ CHANGELOG
 - Feeds: Add documentation for newly supported dataplane feeds, see above (PR#2102 by Mikk Margus Möll).
 - Installation: Restructured the whole document to make it clearer and straight-forward (PR#2113 by Sebastian Wagner).
 - Add workaround for https://github.com/sphinx-doc/sphinx/issues/10701 (PR#2225 by Sebastian Wagner, kudos @yarikoptic, fixes #2224).
+- Fix wrong operator for list-contains-value operation in sieve expert documentation (PR#2256 by Filip Pokorný).
 
 ### Packaging
+- Remove deleted `intelmq.bots.experts.sieve.validator` from executables in `setup.py` (PR#2256 by Filip Pokorný).
 
 ### Tests
 - Add GitHub Action to run regexploit on all Python, JSON and YAML files (PR#2059 by Sebastian Wagner).
@@ -128,7 +136,9 @@ CHANGELOG
 - Threshold Expert tests: Use environment variable `INTELMQ_PIPELINE_HOST` as redis host, analogous to other tests (PR#2209 by Sebastian Wagner, fixes #2207).
 
 ### Tools
-- `intelmqctl`: fix process manager initialization if run non-interactively, as intelmqdump does it (PR#2189 by Sebastian Wagner, fixes 2188).
+- `intelmqctl`:
+  - fix process manager initialization if run non-interactively, as intelmqdump does it (PR#2189 by Sebastian Wagner, fixes 2188).
+  - Privilege drop before logfile creation (PR#2277 by Sebastian Waldbauer, fixes 2176)
 - `intelmqsetup`: Revised installation of manager by building the static files at setup, not build time, making it behave more meaningful. Requires intelmq-manager >= 3.1.0 (PR#2198 by Sebastian Wagner, fixes #2197).
 
 ### Contrib
@@ -711,6 +721,7 @@ IntelMQ no longer supports Python 3.5 (and thus Debian 9 and Ubuntu 16.04), the 
 ### Tools
 - `intelmqdump`:
     - Check if given queue is configured upon recovery (#1433, PR#1587 by Mladen Markovic).
+    - Respected global and per-bot custom settings of `logging_path` (fix #1605).
 - `intelmqctl`:
   - `intelmq list queues`: `--sum`, `--count`, `-s` flag for showing total count of messages (#1408, PR#1581 by Mladen Markovic).
   - `intelmq check`: Added a possibility to ignore queues from the orphaned queues check (by Sebastian Wagner).
@@ -732,7 +743,6 @@ IntelMQ no longer supports Python 3.5 (and thus Debian 9 and Ubuntu 16.04), the 
 - Bots started with IntelMQ-API/Manager stop when the webserver is restarted (#952).
 - Corrupt dump files when interrupted during writing (#870).
 - CSV line recovery forces Windows line endings (#1597).
-- intelmqdump: Honor logging_path variable (#1605).
 - Timeout error in mail URL fetcher (#1621).
 - AMQP pipeline: get_queues needs to check vhost of response (#1746).
 
