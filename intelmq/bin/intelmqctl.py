@@ -631,7 +631,7 @@ Get some debugging output on the settings and the environment (to be extended):
 
     def list_bots(self, non_zero=False, configured=False):
         """
-        Lists all (configured) bots from runtime.conf or generated on demand
+        Lists all (configured) bots from runtime configuration or generated on demand
         with bot id/module and description and parameters.
 
         If description is not set, None is used instead.
@@ -896,7 +896,7 @@ Get some debugging output on the settings and the environment (to be extended):
                 if orphan_queues:
                     check_logger.warning("Orphaned queues found: '%s'. Possible leftover from past reconfigurations "
                                          "without cleanup. Have a look at the FAQ at "
-                                         "https://intelmq.readthedocs.io/en/latest/guides/intelmqctl.html"
+                                         "https://intelmq.readthedocs.io/en/maintenance/user/FAQ.html"
                                          "#orphaned-queues", orphan_queues)
 
         check_logger.info('Checking harmonization configuration.')
@@ -932,6 +932,10 @@ Get some debugging output on the settings and the environment (to be extended):
                     bot_module = importlib.import_module(bot_config['module'])
                 except ImportError as exc:
                     check_logger.error('Incomplete installation: Bot %r not importable: %r.', bot_id, exc)
+                    retval = 1
+                    continue
+                except SyntaxError as exc:
+                    check_logger.error('SyntaxError in bot %r: %r', bot_id, exc)
                     retval = 1
                     continue
                 bot = getattr(bot_module, 'BOT')
