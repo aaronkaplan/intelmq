@@ -1,10 +1,10 @@
 ..
-   SPDX-FileCopyrightText: 2015-2021 Sebastian Wagner
+   SPDX-FileCopyrightText: 2015-2022 Sebastian Wagner
    SPDX-License-Identifier: AGPL-3.0-or-later
 
-####
-Bots
-####
+##############
+Bots inventory
+##############
 
 .. contents::
 
@@ -1013,6 +1013,18 @@ This list is not complete. Look at ``intelmqctl list bots`` or the list of parse
 
 TODO
 
+**Configuration Parameters**
+
+* `default_fields`: map of statically added fields to each event (only applied if parsing the event doesn't set the value)
+
+example usage:
+
+.. code-block:: yaml
+
+   defaults_fields:
+     classification.type: c2-server
+     protocol.transport: tcp
+
 
 .. _intelmq.bots.parsers.anubisnetworks.parser:
 
@@ -1111,7 +1123,7 @@ Lines starting with `'#'` will be ignored. Headers won't be interpreted.
    in the respective `source.url` fields. The value in the dictionary mapping is formatted whereas the columns are available with their index.
  * `"default_url_protocol"`: For URLs you can give a default protocol which will be pretended to the data.
  * `"delimiter"`: separation character of the CSV, e.g. `","`
- * `"skip_header"`: Boolean, skip the first line of the file, optional. Lines starting with `#` will be skipped additionally, make sure you do not skip more lines than needed!
+ * `"skip_header"`: Boolean or Int, skip the first N lines of the file (True -> 1, False -> 0), optional. Lines starting with `#` will be skipped additionally, make sure you do not skip more lines than needed!
  * `time_format`: Optional. If `"timestamp"`, `"windows_nt"` or `"epoch_millis"` the time will be converted first. With the default `null` fuzzy time parsing will be used.
  * `"type"`: set the `classification.type` statically, optional
  * `"data_type"`: sets the data of specific type, currently only `"json"` is supported value. An example
@@ -3350,11 +3362,47 @@ Example: Cut through a long domain with a dot. The string is truncated until the
 - ``max_length``: 20
 - Resulting value ``test.domain.com`` (length: 15 characters)
 
+.. _intelmq.bots.experts.url.expert:
+
+URL
+^^^
+
+This bot extracts additional information from `source.url` and `destination.url` fields. It can fill the following fields:
+
+* `source.fqdn`
+* `source.ip`
+* `source.port`
+* `source.urlpath`
+* `source.account`
+* `destination.fqdn`
+* `destination.ip`
+* `destination.port`
+* `destination.urlpath`
+* `destination.account`
+* `protocol.application`
+* `protocol.transport`
+
+**Information**
+
+* `name:` `intelmq.bots.experts.url.expert`
+* `lookup:` none
+* `public:` yes
+* `cache (redis db):` none
+* `description:` extract additional information from the URL
+
+**Configuration Parameters**
+
+* `overwrite`: boolean, replace existing fields?
+* `skip_fields`: list of fields to not extract from the URL
+
+
 
 .. _intelmq.bots.experts.url2fqdn.expert:
 
 Url2FQDN
 ^^^^^^^^
+
+This bot is deprecated and will be removed in version 4.0. Use 'URL Expert' bot instead.
 
 This bot extracts the Host from the `source.url` and `destination.url` fields and
 writes it to `source.fqdn` or `destination.fqdn` if it is a hostname, or

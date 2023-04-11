@@ -211,6 +211,7 @@ class Bot:
 
             super().__init__()
             self.__connect_pipelines()
+            self.__reset_total_path_stats()
             self.init()
 
             if not self.__instance_id:
@@ -480,6 +481,17 @@ class Bot:
         except Exception:
             self.logger.debug('Failed to write statistics to cache, check your `statistics_*` settings.', exc_info=True)
 
+    def __reset_total_path_stats(self):
+        """Initially set destination paths to 0 to reset them in stats cache"""
+        if not self.destination_queues:
+            return
+        queues_type = type(self.destination_queues)
+        if queues_type is dict:
+            for path in self.destination_queues.keys():
+                self.__message_counter["path_total"][path] = 0
+        else:
+            self.__message_counter["path_total"]["_default"]
+
     def __sleep(self, remaining: Optional[float] = None, log: bool = True):
         """
         Sleep handles interrupts and changed rate_limit-parameter.
@@ -500,6 +512,9 @@ class Bot:
             if log:
                 self.logger.info("Idling for {:.1f}s ({}) now.".format(remaining,
                                                                        utils.seconds_to_human(remaining)))
+            if timedelta(seconds=remaining) > self.__message_counter_delay:
+                self.__stats(force=True)
+
             time.sleep(remaining)
             self.__handle_sighup()
             remaining = self.rate_limit - (time.time() - starttime)
@@ -943,6 +958,8 @@ class ParserBot(Bot):
     _current_line: Optional[str] = None
     _line_ending = '\r\n'
 
+    default_fields: Optional[dict] = {}
+
     def __init__(self, bot_id: str, start: bool = False, sighup_event=None,
                  disable_multithreading: bool = None):
         super().__init__(bot_id, start, sighup_event, disable_multithreading)
@@ -951,6 +968,25 @@ class ParserBot(Bot):
                               'Possible Misconfiguration.')
             self.stop()
         self.group = 'Parser'
+
+        # validate default fields
+        stop = False
+        if self.default_fields:
+            dummy_event = self.new_event()
+            for key, value in self.default_fields.items():
+                try:
+                    dummy_event.add(key, value, raise_failure=True)
+
+                except exceptions.InvalidValue:
+                    self.logger.error("Invalid value of key '%s' in default_fields parameter.", key)
+                    stop = True
+
+                except exceptions.InvalidKey:
+                    self.logger.error("Invalid key '%s' in default_fields parameter.", key)
+                    stop = True
+
+            if stop:
+                self.stop()
 
     def _line_filtering_condition(self, line: str) -> str:
         return not any([line.startswith(prefix) for prefix in self._ignore_lines_starting])
@@ -1081,6 +1117,12 @@ class ParserBot(Bot):
                     events: list[libmessage.Event] = list(filter(bool, value))
                 else:
                     events: list[libmessage.Event] = [value]
+
+                if self.default_fields:
+                    for event in events:
+                        for key, value in self.default_fields.items():
+                            event.add(key, value, overwrite=False)
+
             except Exception:
                 self.logger.exception('Failed to parse line.')
                 self.__failed.append((traceback.format_exc(), self._current_line))

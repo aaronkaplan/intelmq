@@ -52,7 +52,7 @@ class GenericCsvParserBot(ParserBot):
     time_format = None
     type: Optional[str] = None
     type_translation = {}
-    skip_header: bool = False
+    skip_header: Union[bool, int] = False
 
     def init(self):
         # convert columns to an array
@@ -86,6 +86,10 @@ class GenericCsvParserBot(ParserBot):
             raise ValueError("Length of parameters 'columns' (%d) and 'columns_required' (%d) "
                              "needs to be equal." % (len(self.columns), len(self.columns_required)))
 
+        if self.type:
+            # TODO remove in the next major release
+            self.default_fields["classification.type"] = self.type
+
         self.compose = self.compose_fields or {}
 
     def parse(self, report):
@@ -100,7 +104,7 @@ class GenericCsvParserBot(ParserBot):
 
         report_io = self._get_io_and_save_line_ending(raw_report)
 
-        if self.skip_header:
+        for _ in range(int(self.skip_header)):
             self.tempdata.append(next(report_io).rstrip(''.join(report_io.newlines)))
 
         self._handle = RewindableFileHandle(report_io)
@@ -165,8 +169,6 @@ class GenericCsvParserBot(ParserBot):
         for key, value in self.compose.items():
             event[key] = value.format(*row)
 
-        if self.type is not None and "classification.type" not in event:
-            event.add('classification.type', self.type)
         event.add("raw", self.recover_line(row))
         yield event
 

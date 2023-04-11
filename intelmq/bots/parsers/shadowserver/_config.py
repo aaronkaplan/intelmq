@@ -334,6 +334,79 @@ device_id = {
     },
 }
 
+# https://www.shadowserver.org/what-we-do/network-reporting/ddos-participant-report/
+event_ddos_participant = {
+    'required_fields': [
+        ('time.source', 'timestamp', add_UTC_to_timestamp),
+        ('source.ip', 'src_ip', validate_ip),
+        ('source.port', 'src_port', convert_int),
+    ],
+    'optional_fields': [
+        ('extra.', 'duration', convert_int),
+        ('extra.', 'attack_src_port', convert_int),
+        ('extra.', 'http_usessl', convert_bool),
+        ('extra.', 'ip_header_seqnum', convert_int),
+        ('extra.', 'ip_header_ttl', convert_int),
+        ('extra.', 'number_of_connections', convert_int),
+        ('extra.', 'packet_length', convert_int),
+        ('extra.', 'packet_randomized', convert_bool),
+        ('extra.', 'tag', validate_to_none),
+        ('protocol.transport', 'protocol'),
+        ('source.asn', 'src_asn', invalidate_zero),
+        ('source.geolocation.cc', 'src_geo'),
+        ('source.geolocation.region', 'src_region'),
+        ('source.geolocation.city', 'src_city'),
+        ('source.reverse_dns', 'src_hostname'),
+        ('extra.source.naics', 'src_naics', invalidate_zero),
+        ('extra.source.sector', 'src_sector', validate_to_none),
+        ('extra.', 'device_vendor', validate_to_none),
+        ('extra.', 'device_type', validate_to_none),
+        ('extra.', 'device_model', validate_to_none),
+        ('destination.ip', 'dst_ip', validate_ip),
+        ('destination.port', 'dst_port', convert_int),
+        ('destination.asn', 'dst_asn', invalidate_zero),
+        ('destination.geolocation.cc', 'dst_geo'),
+        ('destination.geolocation.region', 'dst_region'),
+        ('destination.geolocation.city', 'dst_city'),
+        ('destination.reverse_dns', 'dst_hostname', validate_to_none),
+        ('extra.destination.naics', 'dst_naics', invalidate_zero),
+        ('extra.destination.sector', 'dst_sector', validate_to_none),
+        ('extra.', 'domain_source', validate_to_none),
+        ('extra.', 'public_source', validate_to_none),
+        ('malware.name', 'infection'),
+        ('extra.', 'family', validate_to_none),
+        ('extra.', 'application', validate_to_none),
+        ('extra.', 'version', validate_to_none),
+        ('extra.', 'event_id', validate_to_none),
+        ('extra.', 'dst_network', validate_to_none),
+        ('extra.', 'dst_netmask', validate_to_none),
+        ('extra.', 'attack', validate_to_none),
+        ('extra.', 'attack_src_ip', validate_to_none),
+        ('extra.', 'domain', validate_to_none),
+        ('extra.', 'domain_transaction_id', validate_to_none),
+        ('extra.', 'gcip', validate_to_none),
+        ('extra.', 'http_method', validate_to_none),
+        ('extra.', 'http_path', validate_to_none),
+        ('extra.', 'http_postdata', validate_to_none),
+        ('extra.', 'ip_header_ack', validate_to_none),
+        ('extra.', 'ip_header_acknum', validate_to_none),
+        ('extra.', 'ip_header_dont_fragment', validate_to_none),
+        ('extra.', 'ip_header_fin', validate_to_none),
+        ('extra.', 'ip_header_identity', validate_to_none),
+        ('extra.', 'ip_header_psh', validate_to_none),
+        ('extra.', 'ip_header_rst', validate_to_none),
+        ('extra.', 'ip_header_syn', validate_to_none),
+        ('extra.', 'ip_header_tos', validate_to_none),
+        ('extra.', 'ip_header_urg', validate_to_none),
+        ('extra.', 'http_agent', validate_to_none),
+    ],
+    'constant_fields': {
+        'classification.taxonomy': 'availability',
+        'classification.type': 'ddos',
+        'classification.identifier': 'ddos-participant',
+    },
+}
+
 # https://www.shadowserver.org/what-we-do/network-reporting/honeypot-brute-force-events-report/
 event_honeypot_brute_force = {
     'required_fields': [
@@ -493,6 +566,7 @@ event_honeypot_ddos = {
         ('extra.', 'ip_header_syn', validate_to_none),
         ('extra.', 'ip_header_tos', validate_to_none),
         ('extra.', 'ip_header_urg', validate_to_none),
+        ('extra.', 'http_agent', validate_to_none),
     ],
     'constant_fields': {
         'classification.taxonomy': 'availability',
@@ -1466,7 +1540,7 @@ scan_ddos_middlebox = {
     },
 }
 
-# http://dnsscan.shadowserver.org
+# https://www.shadowserver.org/what-we-do/network-reporting/dns-open-resolvers-report/
 scan_dns = {
     'required_fields': [
         ('time.source', 'timestamp', add_UTC_to_timestamp),
@@ -1483,8 +1557,6 @@ scan_dns = {
         ('source.geolocation.cc', 'geo'),
         ('source.geolocation.region', 'region'),
         ('source.geolocation.city', 'city'),
-        ('os.name', 'p0f_genre'),
-        ('os.version', 'p0f_detail'),
         ('extra.', 'naics', invalidate_zero),
         ('extra.', 'sic', invalidate_zero),
         ('extra.', 'sector', validate_to_none),
@@ -1939,7 +2011,7 @@ scan_ics = {
         ('extra.', 'device_model', validate_to_none),
         ('extra.', 'device_version', validate_to_none),
         ('extra.', 'device_id', validate_to_none),
-        ('extra.', 'response_length', convert_int),
+        ('extra.', 'response_size', convert_int),
         ('extra.', 'raw_response', validate_to_none),
     ],
     'constant_fields': {
@@ -2544,7 +2616,7 @@ scan_mssql = {
         ('extra.', 'sic', invalidate_zero),
         ('extra.', 'instance_name', validate_to_none),
         ('extra.', 'named_pipe', validate_to_none),
-        ('extra.', 'response_length', convert_int),
+        ('extra.', 'response_size', convert_int),
         ('extra.', 'amplification', convert_float),
         ('extra.', 'sector', validate_to_none),
     ],
@@ -3191,6 +3263,85 @@ scan_rsync = {
     },
 }
 
+# https://www.shadowserver.org/what-we-do/network-reporting/accessible-sip-report/
+scan_sip = {
+    'required_fields': [
+        ('time.source', 'timestamp', add_UTC_to_timestamp),
+        ('source.ip', 'ip', validate_ip),
+        ('source.port', 'port', convert_int),
+    ],
+    'optional_fields': [
+        ('protocol.transport', 'protocol'),
+        ('source.reverse_dns', 'hostname'),
+        ('extra.', 'tag', validate_to_none),
+        ('source.asn', 'asn', invalidate_zero),
+        ('source.geolocation.cc', 'geo'),
+        ('source.geolocation.region', 'region'),
+        ('source.geolocation.city', 'city'),
+        ('extra.', 'sip', validate_to_none),
+        ('extra.', 'sip_code', validate_to_none),
+        ('extra.', 'sip_reason', validate_to_none),
+        ('user_agent', 'user_agent', validate_to_none),
+        ('extra.', 'sip_via', validate_to_none),
+        ('extra.', 'sip_to', validate_to_none),
+        ('extra.', 'sip_from', validate_to_none),
+        ('extra.', 'content_length', convert_int),
+        ('extra.', 'content_type', validate_to_none),
+        ('extra.sip_server', 'server', validate_to_none),
+        ('extra.sip_contact', 'contact', validate_to_none),
+        ('extra.sip_cseq', 'cseq', validate_to_none),
+        ('extra.sip_call_id', 'call_id', validate_to_none),
+        ('extra.sip_allow', 'allow', validate_to_none),
+        ('extra.', 'amplification', convert_float),
+        ('extra.', 'response_size', convert_int),
+    ],
+    'constant_fields': {
+        'classification.taxonomy': 'vulnerable',
+        'classification.type': 'vulnerable-system',
+        'protocol.application': 'sip',
+        'classification.identifier': 'open-sip',
+    },
+}
+
+# https://www.shadowserver.org/what-we-do/network-reporting/accessible-slp-service-report/
+scan_slp = {
+    'required_fields': [
+        ('time.source', 'timestamp', add_UTC_to_timestamp),
+        ('source.ip', 'ip', validate_ip),
+        ('source.port', 'port', convert_int),
+    ],
+    'optional_fields': [
+        ('protocol.transport', 'protocol'),
+        ('source.reverse_dns', 'hostname'),
+        ('extra.', 'tag', validate_to_none),
+        ('source.asn', 'asn', invalidate_zero),
+        ('source.geolocation.cc', 'geo'),
+        ('source.geolocation.region', 'region'),
+        ('source.geolocation.city', 'city'),
+        ('extra.source.naics', 'naics', invalidate_zero),
+        ('extra.source.sic', 'sic', invalidate_zero),
+        ('extra.source.sector', 'sector', validate_to_none),
+        ('extra.', 'version', validate_to_none),
+        ('extra.', 'function', validate_to_none),
+        ('extra.', 'function_text', validate_to_none),
+        ('extra.', 'flags', validate_to_none),
+        ('extra.', 'next_extension_offset', validate_to_none),
+        ('extra.', 'xid', validate_to_none),
+        ('extra.', 'language_tag_length', validate_to_none),
+        ('extra.', 'language_tag', validate_to_none),
+        ('extra.', 'error_code', validate_to_none),
+        ('extra.', 'error_code_text', validate_to_none),
+        ('extra.', 'response_size', convert_int),
+        ('extra.', 'raw_response', validate_to_none),
+    ],
+    'constant_fields': {
+        'classification.taxonomy': 'vulnerable',
+        'classification.type': 'vulnerable-system',
+        'protocol.application': 'slp',
+        'classification.identifier': 'open-slp',
+    },
+}
+
 # https://www.shadowserver.org/what-we-do/network-reporting/accessible-smb-report/
 scan_smb = {
     'required_fields': [
@@ -3279,7 +3430,7 @@ scan_smtp_vulnerable = {
     },
 }
 
-# https://www.shadowserver.org/wiki/pmwiki.php/Services/Open-SNMP
+# https://www.shadowserver.org/what-we-do/network-reporting/open-snmp-report/
 scan_snmp = {
     'required_fields': [
         ('time.source', 'timestamp', add_UTC_to_timestamp),
@@ -3954,6 +4105,37 @@ scan_vnc = {
     },
 }
 
+# https://www.shadowserver.org/what-we-do/network-reporting/accessible-ws-discovery-service-report/
+scan_ws_discovery = {
+    'required_fields': [
+        ('time.source', 'timestamp', add_UTC_to_timestamp),
+        ('source.ip', 'ip', validate_ip),
+        ('source.port', 'port', convert_int),
+    ],
+    'optional_fields': [
+        ('protocol.transport', 'protocol'),
+        ('source.reverse_dns', 'hostname'),
+        ('extra.', 'tag', validate_to_none),
+        ('source.asn', 'asn', invalidate_zero),
+        ('source.geolocation.cc', 'geo'),
+        ('source.geolocation.region', 'region'),
+        ('source.geolocation.city', 'city'),
+        ('extra.source.naics', 'naics', invalidate_zero),
+        ('extra.source.sic', 'sic', invalidate_zero),
+        ('extra.source.sector', 'sector', validate_to_none),
+        ('extra.', 'response_size', convert_int),
+        ('extra.', 'amplification', convert_float),
+        ('extra.', 'error', validate_to_none),
+        ('extra.', 'raw_response', validate_to_none),
+    ],
+    'constant_fields': {
+        'classification.taxonomy': 'vulnerable',
+        'classification.type': 'vulnerable-system',
+        'protocol.application': 'ws-discovery',
+        'classification.identifier': 'open-ws-discovery',
+    },
+}
+
 # https://www.shadowserver.org/what-we-do/network-reporting/accessible-xdmcp-service-report/
 scan_xdmcp = {
     'required_fields': [
@@ -3993,7 +4175,7 @@ spam_url = {
     ],
     'optional_fields': [
         ('source.url', 'url', convert_http_host_and_url, True),
-        ('source.fqdn', 'http_host', validate_fqdn),
+        ('source.fqdn', 'host', validate_fqdn),
         ('source.asn', 'asn', invalidate_zero),
         ('source.geolocation.cc', 'geo'),
         ('source.geolocation.region', 'region'),
@@ -4047,6 +4229,7 @@ mapping = (
     ('Compromised-Website', 'compromised_website', compromised_website),
     ('Device-Identification IPv4', 'device_id', device_id),
     ('Device-Identification IPv6', 'device_id6', device_id),
+    ('DDoS-Participant', 'event4_ddos_participant', event_ddos_participant),
     ('Honeypot-Brute-Force-Events', 'event4_honeypot_brute_force', event_honeypot_brute_force),
     ('Honeypot-Darknet', 'event4_honeypot_darknet', event_honeypot_darknet),
     ('Honeypot-DDoS', 'event4_honeypot_ddos', event_honeypot_ddos),
@@ -4066,15 +4249,20 @@ mapping = (
     ('Sinkhole-Events-HTTP-Referer IPv6', 'event6_sinkhole_http_referer', event_sinkhole_http_referer),
     ('Malware-URL', 'malware_url', malware_url),
     ('Phish-URL', 'phish_url', phish_url),
-    ('Accessible-HTTP-proxy', 'population_http_proxy', population_http_proxy),
+    ('IPv6-Accessible-HTTP-Proxy', 'population6_http_proxy', population_http_proxy),
+    ('Accessible-HTTP-Proxy', 'population_http_proxy', population_http_proxy),
     ('Sandbox-Connections', 'sandbox_conn', sandbox_conn),
     ('Sandbox-DNS', 'sandbox_dns', sandbox_dns),
     ('Sandbox-URL', 'sandbox_url', sandbox_url),
     ('IPv6-Accessible-CWMP', 'scan6_cwmp', scan_cwmp),
+    ('IPv6-DNS-Open-Resolvers', 'scan6_dns', scan_dns),
+    ('IPv6-Vulnerable-Exchange', 'scan6_exchange', scan_exchange),
     ('IPv6-Accessible-FTP', 'scan6_ftp', scan_ftp),
     ('IPv6-Accessible-HTTP', 'scan6_http', scan_http),
+    ('IPv6-Open-HTTP-Proxy', 'scan6_http_proxy', scan_http_proxy),
     ('IPv6-Vulnerable-HTTP', 'scan6_http_vulnerable', scan_http_vulnerable),
     ('IPv6-Open-IPP', 'scan6_ipp', scan_ipp),
+    ('IPv6-Open-LDAP-TCP', 'scan6_ldap_tcp', scan_ldap_tcp),
     ('IPv6-Open-MQTT', 'scan6_mqtt', scan_mqtt),
     ('IPv6-Open-Anonymous-MQTT', 'scan6_mqtt_anon', scan_mqtt_anon),
     ('IPv6-Accessible-MySQL', 'scan6_mysql', scan_mysql),
@@ -4082,6 +4270,7 @@ mapping = (
     ('IPv6-NTP-Monitor', 'scan6_ntpmonitor', scan_ntpmonitor),
     ('IPv6-Accessible-PostgreSQL', 'scan6_postgres', scan_postgres),
     ('IPv6-Accessible-RDP', 'scan6_rdp', scan_rdp),
+    ('IPv6-Accessible-SLP', 'scan6_slp', scan_slp),
     ('IPv6-Accessible-SMB', 'scan6_smb', scan_smb),
     ('IPv6-Accessible-SMTP', 'scan6_smtp', scan_smtp),
     ('IPv6-Vulnerable-SMTP', 'scan6_smtp_vulnerable', scan_smtp_vulnerable),
@@ -4113,7 +4302,7 @@ mapping = (
     ('Accessible-FTP', 'scan_ftp', scan_ftp),
     ('Accessible-Hadoop', 'scan_hadoop', scan_hadoop),
     ('Accessible-HTTP', 'scan_http', scan_http),
-    ('Open-HTTP-proxy', 'scan_http_proxy', scan_http_proxy),
+    ('Open-HTTP-Proxy', 'scan_http_proxy', scan_http_proxy),
     ('Vulnerable-HTTP', 'scan_http_vulnerable', scan_http_vulnerable),
     ('Accessible-ICS', 'scan_ics', scan_ics),
     ('Open-IPMI', 'scan_ipmi', scan_ipmi),
@@ -4143,6 +4332,8 @@ mapping = (
     ('Accessible-MS-RDPEUDP', 'scan_rdpeudp', scan_rdpeudp),
     ('Open-Redis', 'scan_redis', scan_redis),
     ('Accessible-Rsync', 'scan_rsync', scan_rsync),
+    ('Accessible-SIP', 'scan_sip', scan_sip),
+    ('Accessible-SLP', 'scan_slp', scan_slp),
     ('Accessible-SMB', 'scan_smb', scan_smb),
     ('Accessible-SMTP', 'scan_smtp', scan_smtp),
     ('Vulnerable-SMTP', 'scan_smtp_vulnerable', scan_smtp_vulnerable),
@@ -4159,6 +4350,7 @@ mapping = (
     ('Open-TFTP', 'scan_tftp', scan_tftp),
     ('Accessible-Ubiquiti-Discovery-Service', 'scan_ubiquiti', scan_ubiquiti),
     ('Accessible-VNC', 'scan_vnc', scan_vnc),
+    ('Accessible-WS-Discovery-Service', 'scan_ws_discovery', scan_ws_discovery),
     ('Open-XDMCP', 'scan_xdmcp', scan_xdmcp),
     ('Spam-URL', 'spam_url', spam_url),
     ('Special', 'special', special),
