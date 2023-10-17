@@ -110,6 +110,14 @@ def skip_build_environment():
     return unittest.skipIf(os.getenv('USER') == 'abuild', 'Test disabled in Build Service.')
 
 
+def skip_installation():
+    """
+    Skip a test that requires an IntelMQ installation on this host
+    """
+    return unittest.skipUnless(os.getenv('INTELMQ_TEST_INSTALLATION'),
+                               'Skipping tests requiring an IntelMQ installation.')
+
+
 class BotTestCase:
     """
     Provides common tests and assert methods for bot testing.
@@ -236,6 +244,13 @@ class BotTestCase:
                         new=self.mocked_config):
             with mock.patch('intelmq.lib.utils.log', self.get_mocked_logger(self.logger)):
                 with mock.patch('intelmq.lib.utils.get_global_settings', mocked_get_global_settings):
+                    """
+                    Since Bot.__del__ method calls Bot.stop, log messages of the previous bot run like:
+                    "Processed/Forwarded X messages since last logging."
+                    "Bot stopped"
+                    appear in the log_stream at this point. So we clean the log before calling the bot, so that the tests in run_bot succeed.
+                    """
+                    self.log_stream.truncate(0)
                     self.bot = self.bot_reference(self.bot_id)
         self.bot._Bot__stats_cache = None
 
@@ -295,7 +310,9 @@ class BotTestCase:
                 prepare=True, parameters={},
                 allowed_error_count=0,
                 allowed_warning_count=0,
-                stop_bot: bool = True):
+                stop_bot: bool = True,
+                expected_internal_queue_size: int = 0,
+                ):
         """
         Call this method for actually doing a test run for the specified bot.
 
@@ -331,10 +348,10 @@ class BotTestCase:
                          'iterations of `run_bot`.')
 
         internal_queue_size = len(self.get_input_internal_queue())
-        self.assertEqual(internal_queue_size, 0,
-                         'The internal input queue is not empty, but has '
+        self.assertEqual(internal_queue_size, expected_internal_queue_size,
+                         f'The internal input queue does not have expected size {expected_internal_queue_size}, but has '
                          f'{internal_queue_size} element(s). '
-                         'The bot did not acknowledge all messages.')
+                         'The bot did not acknowledge the expected number of messages.')
 
         """ Test if report has required fields. """
         if self.bot_type == 'collector':
@@ -355,8 +372,16 @@ class BotTestCase:
                 self.assertIn('raw', event)
 
         """ Test if bot log messages are correctly formatted. """
-        self.assertLoglineMatches(0, BOT_INIT_REGEX.format(self.bot_name,
-                                                           self.bot_id), "INFO")
+        try:
+            self.assertLoglineMatches(0, BOT_INIT_REGEX.format(self.bot_name,
+                                                               self.bot_id), "INFO")
+        except AssertionError as exc:
+            # In some obscure but rate instances the logging of the previous bot run can end up in the logging of the next run, resulting in line 0 being:
+            # "Processed/Forwarded 1 messages since last logging." (written at shutdown of that previous bot run)
+            if 'since last logging' in exc.args[0]:
+                pass
+            else:
+                raise
         self.assertRegexpMatchesLog("INFO - Bot is starting.")
         if stop_bot:
             self.assertLoglineEqual(-1, "Bot stopped.", "INFO")
@@ -488,7 +513,8 @@ class BotTestCase:
 
         self.assertIsNotNone(self.loglines)
         logline = self.loglines[line_no]
-        fields = utils.parse_logline(logline)
+        # in some cases, the log_stream may end with a bunch of \x00 Nullbytes, maybe a side-effect of truncating the log?
+        fields = utils.parse_logline(logline.strip('\x00'))
 
         self.assertEqual(self.bot_id, fields["bot_id"],
                          "bot_id {!r} didn't match {!r}."

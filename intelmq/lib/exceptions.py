@@ -31,8 +31,8 @@ class InvalidArgument(IntelMQException):
     def __init__(self, argument: Any, got: Any = None, expected=None,
                  docs: str = None):
         message = f"Argument {repr(argument)} is invalid."
-        if expected is list:
-            message += f" Should be one of: {list}."
+        if isinstance(expected, list):
+            message += f" Should be one of: {expected}."
         elif expected:  # not None
             message += f" Should be of type: {expected}."
         if got:
@@ -88,8 +88,8 @@ class InvalidValue(IntelMQHarmonizationException):
 
 class InvalidKey(IntelMQHarmonizationException, KeyError):
 
-    def __init__(self, key: str):
-        message = "invalid key %s" % repr(key)
+    def __init__(self, key: str, additional_text: Optional[str] = None):
+        message = f"invalid key {key!r} {additional_text or ''}".strip()  # remove trailing whitespace if additional_text is not given
         super().__init__(message)
 
 

@@ -10,6 +10,48 @@ This file lists all changes which have an affect on the administration of IntelM
 Please refer to the change log for a full list of changes.
 
 
+3.2.2 Bugfix release (unreleased)
+---------------------------------
+
+### Requirements
+
+### Tools
+
+### Data Format
+
+### Configuration
+
+### Libraries
+
+### Postgres databases
+
+
+3.2.1 Bugfix release (2023-08-23)
+---------------------------------
+
+### All Bots
+Fixes an issue which prevented bots from stopping gracefully after reloading.
+As logrotate reloads all bots regularly, this bug affects most IntelMQ installations.
+
+### Reverse DNS Expert
+Until IntelMQ version 3.2.0, the bot incorrectly cached and re-used results for /24 networks instead of single IP addresses.
+If the bot retrieved the PTR for `192.0.43.7`, it was cached for `192.0.43.0/24` and used for all IP addresses in this range, for example for `192.0.43.8`.
+IntelMQ version 3.2.1 fixes this issue.
+
+The bugfix will correctly increase the cache sizes and decrease the performance, as less (incorrect) data is re-used.
+
+
+3.2.0 Feature release (2023-07-18)
+----------------------------------
+
+No changes are required by administrators.
+
+[IEP007: Running IntelMQ bots as Python Library](https://github.com/certtools/ieps/tree/main/007) is implemented.
+
+The accompanying 3.2.0 release of intelmq-api switches it's backend from the library hug to fastapi.
+Deb-packages of intelmq-api 3.2.0 are delayed for some distributions because of necessary changes in packaging.
+
+
 3.1.0 Feature release (2023-02-10)
 ----------------------------------
 

@@ -15,22 +15,22 @@ on:
       - '.github/**'
 
 jobs:
-  build:
+  ansible:
     # temporary fix for https://github.com/actions/virtual-environments/issues/3080
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     name: Run ansible tests
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         path: ./src/intelmq
 
     - name: Checkout ansible scripts
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: certtools/intelmq-vagrant
         path: ./src/intelmq-vagrant
 
     - name: Run ansible tests
-      run: podman run -e CI=${CI} -v ${GITHUB_WORKSPACE}/src:/src docker.io/debian:buster-slim /src/intelmq/.github/workflows/scripts/ansible.sh
+      run: podman run -e CI=${CI} -v ${GITHUB_WORKSPACE}/src:/src docker.io/debian:bullseye-slim /src/intelmq/.github/workflows/scripts/ansible.sh

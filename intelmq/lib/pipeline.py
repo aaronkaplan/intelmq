@@ -3,9 +3,19 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 # -*- coding: utf-8 -*-
+
+"""
+Algorithm
+---------
+[Receive]     B RPOP LPUSH   source_queue ->  internal_queue
+[Send]        LPUSH          message      ->  destination_queue
+[Acknowledge] RPOP           message      <-  internal_queue
+"""
+
+
 import time
 from itertools import chain
-from typing import Dict, Optional
+from typing import Optional
 import ssl
 
 import redis
@@ -13,6 +23,7 @@ import redis
 import intelmq.lib.exceptions as exceptions
 import intelmq.lib.pipeline
 import intelmq.lib.utils as utils
+from intelmq.lib.message import Message
 
 __all__ = ['Pipeline', 'PipelineFactory', 'Redis', 'Pythonlist', 'Amqp']
 
@@ -326,18 +337,13 @@ class Redis(Pipeline):
         Rejecting is a no-op as the message is in the internal queue anyway.
         """
 
-# Algorithm
-# ---------
-# [Receive]     B RPOP LPUSH   source_queue ->  internal_queue
-# [Send]        LPUSH          message      ->  destination_queue
-# [Acknowledge] RPOP           message      <-  internal_queue
-
 
 class Pythonlist(Pipeline):
     """
     This pipeline uses simple lists and is only for testing purpose.
 
     It behaves in most ways like a normal pipeline would do,
+    including all encoding and decoding steps,
     but works entirely without external modules and programs.
     Data is saved as it comes (no conversion) and it is not blocking.
     """
@@ -410,10 +416,74 @@ class Pythonlist(Pipeline):
         """ Empties given queue. """
         self.state[queue] = []
 
+    def clear_all_queues(self):
+        """ Empties all queues / state """
+        for queue in self.state:
+            self.state[queue] = []
+
     def _reject_message(self):
         """
         No-op because of the internal queue
         """
+
+
+class Pythonlistsimple(Pythonlist):
+    """
+    This pipeline uses simple lists for internal queues.
+
+    It does no conversions and encoding stuff.
+    """
+
+    state = {}  # type: Dict[str, list]
+
+    def connect(self):
+        pass
+
+    def send(self, message: Message,
+             path: str = "_default",
+             path_permissive: bool = True):
+        """
+        Sends a message to the destination queues
+
+        message should be of type Message, not string/bytes
+
+        path_permissive defaults to true as opposed to the other pipelines!
+        """
+        if path not in self.destination_queues and path_permissive:
+            return
+
+        for destination_queue in self.destination_queues[path]:
+            try:
+                self.state[destination_queue].append(message)
+            except KeyError:
+                self.state[destination_queue] = [message]
+
+    def _receive(self) -> bytes:
+        """
+        Receives the last not yet acknowledged message.
+
+        Does not block unlike the other pipelines.
+        """
+        if len(self.state[self.internal_queue]) > 0:
+            return self.state[self.internal_queue][0]
+
+        try:
+            first_msg = self.state[self.source_queue].pop(0)
+        except IndexError as exc:
+            raise exceptions.PipelineError(exc)
+        self.state[self.internal_queue].append(first_msg)
+
+        return first_msg
+
+    def receive(self) -> str:
+        if self._has_message:
+            raise exceptions.PipelineError("There's already a message, first "
+                                           "acknowledge the existing one.")
+
+        retval = self._receive()
+        self._has_message = True
+        # no decoding
+        return retval
 
 
 class Amqp(Pipeline):

@@ -1,47 +1,189 @@
 <!-- comment
-   SPDX-FileCopyrightText: 2015-2022 Sebastian Wagner
+   SPDX-FileCopyrightText: 2015-2023 Sebastian Wagner
    SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 CHANGELOG
 ==========
 
-3.1.1 (unreleased)
+
+3.2.2 (unreleased)
+------------------
+
+### Configuration
+- Add new optional configuration parameters for `intelmq.bots.collectors.stomp.collector`
+  and `intelmq.bots.outputs.stomp.output` (PR#2408 by Jan Kaliszewski):
+  - `auth_by_ssl_client_certificate` (Boolean, default: *true*; if *false* then
+    `ssl_client_certificate` and `ssl_client_certificate_key` will be ignored);
+  - `username` (STOMP authentication login, default: "guest"; to be used only
+    if `auth_by_ssl_client_certificate` is *false*);
+  - `password` (STOMP authentication passcode, default: "guest"; to be used only
+    if `auth_by_ssl_client_certificate` is *false*).
+
+### Core
+- `intelmq.lib.message`: For invalid message keys, add a hint on the failure to the exception: not allowed by configuration or not matching regular expression (PR#2398 by Sebastian Wagner).
+- `intelmq.lib.exceptions.InvalidKey`: Add optional parameter `additional_text` (PR#2398 by Sebastian Wagner).
+- `intelmq.lib.mixins`: Add a new class, `StompMixin` (defined in a new submodule: `stomp`),
+  which provides certain common STOMP-bot-specific operations, factored out from
+  `intelmq.bots.collectors.stomp.collector` and `intelmq.bots.outputs.stomp.output`
+  (PR#2408 by Jan Kaliszewski).
+
+### Development
+
+### Data Format
+
+### Bots
+#### Collectors
+- `intelmq.bots.collectors.stomp.collector` (PR#2408 by Jan Kaliszewski):
+  - Add support for authentication based on STOMP login and passcode,
+    introducing 3 new configuration parameters (see above: *Configuration*).
+  - Update the code to support new versions of `stomp.py`, including the latest (`8.1.0`);
+    fixes [#2342](https://github.com/certtools/intelmq/issues/2342).
+  - Fix the reconnection behavior: do not attempt to reconnect after `shutdown`. Also,
+    never attempt to reconnect if the version of `stomp.py` is older than `4.1.21` (it
+    did not work properly anyway).
+  - Add coercion of the `port` config parameter to `int`.
+  - Add implementation of the `check` hook (verifying, in particular, accessibility
+    of necessary file(s)).
+  - Remove undocumented and unused attributes of `StompCollectorBot` instances:
+    `ssl_ca_cert`, `ssl_cl_cert`, `ssl_cl_cert_key`.
+  - Minor fixes/improvements and some refactoring (see also above: *Core*...).
+
+#### Parsers
+
+#### Experts
+
+#### Outputs
+- `intelmq.bots.outputs.stomp.output` (PR#2408 by Jan Kaliszewski):
+  - Add support for authentication based on STOMP login and passcode,
+    introducing 3 new configuration parameters (see above: *Configuration*).
+  - Update the code to support new versions of `stomp.py`, including the latest (`8.1.0`).
+  - Fix `AttributeError` caused by attempts to get unset attributes of `StompOutputBot`
+    (`ssl_ca_cert` et consortes).
+  - Add coercion of the `port` config parameter to `int`.
+  - Add implementation of the `check` hook (verifying, in particular, accessibility
+    of necessary file(s)).
+  - Add `stomp.py` version check (raise `MissingDependencyError` if not `>=4.1.8`).
+  - Minor fixes/improvements and some refactoring (see also above: *Core*...).
+
+### Documentation
+- Add a readthedocs configuration file to fix the build fail (PR#2403 by Sebastian Wagner).
+- Update/fix/improve the stuff related to the STOMP bots and integration with the *n6*'s
+  Stream API (PR#2408 by Jan Kaliszewski).
+
+### Packaging
+
+### Tests
+
+### Tools
+ - `intelmq_psql_initdb` got support for providing custom harmonization file, generating view for storing `raw` fields separately, and adding `IF NOT EXISTS`/`OR REPLACE` clauses ([PR#2404](https://github.com/certtools/intelmq/pull/2404) by Kamil Mankowski).
+
+### Contrib
+
+### Known issues
+
+
+3.2.1 (2023-08-28)
 ------------------
 
 ### Core
+- Fixed issue preventing bots from stopping after reloading (PR by Kamil Mankowski).
+
+### Bots
+#### Experts
+- `intelmq.bots.experts.reverse_dns.expert`:
+  - Fix the cache key to not cache results for /24 (IPv4) and /128 (IPv6) networks but for single IP-Adresses (PR#2395 by Sebastian Wagner, fixes #2394).
+
+
+3.2.0 (2023-07-18)
+------------------
+
+### Core
+- `intelmq.lib.utils`:
+  - `resolve_dns`: Deprecate dnspython versions pre-2.0.0 and disable search domains (PR#2352)
 - Fixed not resetting destination path statistics in the stats cache after restarting bot (Fixes [#2331](https://github.com/certtools/intelmq/issues/2331))
 - Force flushing statistics if bot will sleep longer than flushing delay (Fixes [#2336](https://github.com/certtools/intelmq/issues/2336))
+- `intelmq.lib.upgrages`: Fix a bug in the upgrade function for version 3.1.0 which caused an exception if a generic csv parser instance had no parameter `type` (PR#2319 by Filip Pokorný).
+- `intelmq.lib.datatypes`: Adds `TimeFormat` class to be used for the `time_format` bot parameter (PR#2329 by Filip Pokorný).
+- `intelmq.lib.exceptions`: Fixes a bug in `InvalidArgument` exception (PR#2329 by Filip Pokorný).
+- `intelmq.lib.harmonization`:
+  - Changes signature and names of `DateTime` conversion functions for consistency, backwards compatible (PR#2329 by Filip Pokorný).
+  - Ensure rejecting URLs with leading whitespaces after changes in CPython (fixes [#2377](https://github.com/certtools/intelmq/issues/2377))
+- `intelmq.lib.bot.Bot`: Allow setting the parameters via parameter on bot initialization.
 
 ### Development
+- CI: pin the Codespell version to omit troubles caused by its new releases (PR #2379).
+- CI: Updated the versions of the github actions in the CI workflows. (PR#2392 by Sebastian Kufner)
 
 ### Bots
 
 #### Collectors
+- `intelmq.bots.collector.rt`:
+  - restrict `python-rt` to be below version 3.0 due to introduced breaking changes,
+  - added support for `Subject NOT LIKE` queries,
+  - added support for multiple values in ticket subject queries.
+- `intelmq.bots.collectors.rsync`: Support for optional private key, relative time parsing for the source path, extra rsync parameters and strict host key checking (PR#2241 by Mateo Durante).
 
 #### Parsers
 - `intelmq.bots.parsers.shadowserver._config`:
+  - Reset detected `feedname` at shutdown to re-detect the feedname on reloads (PR#2361 by @elsif2, fixes #2360).
+- `intelmq.bots.parsers.shadowserver._config`:
   - Added 'IPv6-Vulnerable-Exchange' alias and 'Accessible-WS-Discovery-Service' report. (PR#2338)
-  - Removed unused 'p0f_genre' and 'p0f_detail' from the 'DNS-Open-Resolvers' report. (PR#2338)
+  - Removed unused `p0f_genre` and `p0f_detail` from the 'DNS-Open-Resolvers' report. (PR#2338)
   - Added 'Accessible-SIP' report. (PR#2348)
   - Added 'IPv6-Open-HTTP-Proxy' and 'IPv6-Accessible-HTTP-Proxy' aliases. (PR#2348)
-  - Removed  duplicate mappings from the 'Spam-URL' report. (PR#2348) 
+  - Removed  duplicate mappings from the 'Spam-URL' report. (PR#2348)
+- `intelmq.bots.parsers.generic.parser_csv`: Changes `time_format` parameter to use new `TimeFormat` class (PR#2329 by Filip Pokorný).
+- `intelmq.bots.parsers.html_table.parser`: Changes `time_format` parameter to use new `TimeFormat` class (PR#2329 by Filip Pokorný).
+- `intelmq.bots.parsers.turris.parser.py` Updated to the latest data format (issue #2167). (PR#2373 by Filip Pokorný).
 
 #### Experts
 - `intelmq.bots.experts.sieve`:
   - Allow empty lists in sieve rule files (PR#2341 by Mikk Margus Möll).
+- `intelmq.bots.experts.cymru_whois`:
+  - Ignore AS names with unexpected unicode characters (PR#2352, fixes #2132)
+  - Avoid extraneous search domain-based queries on NXDOMAIN result (PR#2352)
+- `intelmq.bots.experts.sieve`:
+  - Added :before and :after keywords (PR#2374)
 
 #### Outputs
+- `intelmq.bots.outputs.cif3.output`: Added (PR#2244 by Michael Davis).
+- `intelmq.bots.outputs.sql.output`: New parameter `fail_on_errors` (PR#2362 by Sebastian Wagner).
+- `intelmq.bots.outputs.smtp_batch.output`: Added a bot to gathering the events and sending them by e-mails at a stroke as CSV files (PR#2253 by Edvard Rejthar)
 
 ### Documentation
+- API: update API installation to be aligned with the rewritten API, and clarify some missing steps.
 
 ### Tests
-
-### Packaging
+- New decorator `skip_installation` and environment variable `INTELMQ_TEST_INSTALLATION` to skip tests requiring an IntelMQ installation on the test host by default (PR#2370 by Sebastian Wagner, fixes #2369)
 
 ### Tools
+- `intelmqsetup`:
+  - SECURITY: fixed a low-risk bug causing the tool to change owner of `/` if run with the `INTELMQ_PATHS_NO_OPT` environment variable set. This affects only the PIP package as the DEB/RPM packages don't contain this tool. (PR#2355 by Kamil Mańkowski, fixes #2354)
+- `contrib.eventdb.separate-raws-table.sql`: Added the missing commas to complete the sql syntax. (PR#2386, fixes #2125 by Sebastian Kufner)
+- `intelmq_psql_initdb`:
+  - Added parameter `-o` to set the output file destination. (by Sebastian Kufner)
+- `intelmqctl`:
+  - Increased the performance through removing unnecessary reads. (by Sebastian Kufner)
 
-### Known Errors
+### Known Issues
+This is short list of the most important known issues. The full list can be retrieved from [GitHub](https://github.com/certtools/intelmq/labels/bug?page=2&q=is%3Aopen+label%3Abug).
+- `intelmq.parsers.html_table` may not process invalid URLs in patched Python version due to changes in `urllib` (#2382).
+- Breaking changes in 'rt' library (#2367).
+- Stomp collector failed (#2342).
+- Type error with SQL output bot's `prepare_values` returning list instead of tuple (#2255).
+- `intelmq_psql_initdb` does not work for SQLite (#2202).
+- intelmqsetup: should install a default state file (#2175).
+- Misp Expert - Crash if misp event already exist (#2170).
+- Turris greylist has been updated (#2167).
+- Spamhaus CERT parser uses wrong field (#2165).
+- Custom headers ignored in HTTPCollectorBot (#2150).
+- intelmqctl log: parsing syslog does not work (#2097).
+- Bash completion scripts depend on old JSON-based configuration files (#2094).
+- Bot configuration examples use JSON instead of YAML (#2066).
+- Bots started with IntelMQ-API/Manager stop when the webserver is restarted (#952).
+- Corrupt dump files when interrupted during writing (#870).
+
 
 3.1.0 (2023-02-10)
 ------------------

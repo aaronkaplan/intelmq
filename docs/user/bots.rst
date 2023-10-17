@@ -550,7 +550,11 @@ Request Tracker
 * `cache (redis db):` none
 * `description:` Request Tracker Collector fetches attachments from an RTIR instance.
 
-You need the rt-library >= 1.9 from nic.cz, available via `pypi <https://pypi.org/project/rt/>`_: `pip3 install rt`
+You need the rt-library >= 1.9 and < 3.0 from nic.cz, available via `pypi <https://pypi.org/project/rt/>`_: `pip3 install 'rt<3'`
+
+.. warning::
+
+   At the moment, the bot only supports `python-rt` versions below 3.0.
 
 This rt bot will connect to RT and inspect the given `search_queue` for tickets matching all criteria in `search_*`,
 Any matches will be inspected. For each match, all (RT-) attachments of the matching RT tickets are iterated over and within this loop, the first matching filename in the attachment is processed.
@@ -570,7 +574,8 @@ If none of the filename matches apply, the contents of the first (RT-) "history"
 * `search_queue`: queue of the ticket to search for (default: `Incident Reports`)
 * `search_requestor`: the e-mail address of the requestor
 * `search_status`: status of the ticket to search for (default: `new`)
-* `search_subject_like`: part of the subject of the ticket to search for (default: `Report`)
+* `search_subject_like`: part of the subject of the ticket to search for (default: `Report`); use list for multiple required values,
+* `search_subject_notlike`: exclude subject containing given value, use list for multiple excluding values,
 * `set_status`: status to set the ticket to after processing (default: `open`). `false` or `null` to not set a different status.
 * `take_ticket`: whether to take the ticket (default: `true`)
 * `url_regex`: regular expression of an URL to search for in the ticket
@@ -633,10 +638,13 @@ Requires the rsync executable
 
 **Configuration Parameters**
 
-* **Feed parameters** (see above)
-* `file`: Name of downloaded file.
-* `file`: The filename to process, combined with `rsync_path`.
-* `rsync_path`: Path to file. It can be "/home/username/directory" or "username@remote_host:/home/username/directory"
+* `rsync_path`: Rsync server connection and path. It can be "/home/username/directory/" or "username@remote_host:/home/username/directory/". Supports formatting, see below.
+* `file`: The filename to process, combined with `rsync_path`. Supports formatting, see below.
+* `rsync_file_path_formatting`: Boolean if the file and rsync_path should be formatted by the given format (default: `false`). E.g. if the path is `/path/to_file/{time[%Y]}`, then the resulting path is `/path/to/file/2023` for the year 2023. (Python's `Format Specification Mini-Language <https://docs.python.org/3/library/string.html#formatspec>`_ is used for this.). You may use a `JSON` specifying `time-delta <https://docs.python.org/3/library/datetime.html#datetime.timedelta>`_ parameters to shift the current time accordingly. For example use `{"days": -1}` for the yesterday's date; the path `/path/to/file/{time[%Y-%m-%d]}` will get translated to "/path/to/file/2018-12-31" for the 1st Jan of 2023.
+* `extra_params`: A list of extra parameters to pass to rsync. Optional.
+* `private_key`: Private key to use for rsync authentication. Optional.
+* `private_key_path`: Path to private key to use for rsync authentication. Optional. (Use `private_key` or `private_key_path`, not both.)
+* `strict_host_key_checking`: Boolean if the host key should be checked (default: `false`).
 * `temp_directory`: The temporary directory for rsync to use for rsync'd files. Optional. Default: `$VAR_STATE_PATH/rsync_collector`. `$VAR_STATE_PATH` is `/var/run/intelmq/` or `/opt/intelmq/var/run/`.
 
 
@@ -937,12 +945,15 @@ Install the `stomp.py` library from PyPI:
 **Configuration Parameters**
 
 * **Feed parameters** (see above)
-* `exchange`: exchange point
+* `exchange`: STOMP *destination* to subscribe to, e.g. "/exchange/my.org/*.*.*.*"
 * `port`: 61614
-* `server`: hostname e.g. "n6stream.cert.pl"
+* `server`: hostname, e.g. "n6stream.cert.pl"
 * `ssl_ca_certificate`: path to CA file
-* `ssl_client_certificate`: path to client cert file
-* `ssl_client_certificate_key`: path to client cert key file
+* `auth_by_ssl_client_certificate`: Boolean, default: true (note: set to false for new *n6* auth)
+* `ssl_client_certificate`: path to client cert file, used only if `auth_by_ssl_client_certificate` is true
+* `ssl_client_certificate_key`: path to client cert key file, used only if `auth_by_ssl_client_certificate` is true
+* `username`: STOMP *login* (e.g., *n6* user login), used only if `auth_by_ssl_client_certificate` is false
+* `password`: STOMP *passcode* (e.g., *n6* user API key), used only if `auth_by_ssl_client_certificate` is false
 
 
 .. _intelmq.bots.collectors.twitter.collector_twitter:
@@ -1928,7 +1939,7 @@ RemoveAffix
 
 **Configuration Parameters**
 
-* `remove_prefix`: True - cut from start, False - cut from end
+* `remove_prefix`: True - cut from start, False - cut from end. Default: True
 * `affix`: example 'www.'
 * `field`: example field 'source.fqdn'
 
@@ -2186,7 +2197,7 @@ Both parameters accept string values describing absolute or relative time:
 
 * absolute
 
- * basically anything parseable by datetime parser, eg. "2015-09-012T06:22:11+00:00"
+ * basically anything parseable by datetime parser, eg. "2015-09-12T06:22:11+00:00"
  * `time.source` taken from the event will be compared to this value to decide the filter behavior
 
 * relative
@@ -2196,7 +2207,7 @@ Both parameters accept string values describing absolute or relative time:
 
 *Examples of time filter definition*
 
-* ```"not_before" : "2015-09-012T06:22:11+00:00"``` events older than the specified time will be dropped
+* ```"not_before" : "2015-09-12T06:22:11+00:00"``` events older than the specified time will be dropped
 * ```"not_after" : "6 months"``` just events older than 6 months will be passed through the pipeline
 
 **Possible paths**
@@ -2995,6 +3006,12 @@ The following operators may be used to match events:
  * `:supersetof` tests if the list of values from the given key is a superset of the values specified as the argument. Example for matching hosts with at least the IoT and vulnerable tags:
    ``if extra.tags :supersetof ['iot', 'vulnerable'] { ... }``
 
+ * `:before` tests if the date value occurred before given time ago. The time might be absolute (basically anything parseable by pendulum parser, eg. “2015-09-12T06:22:11+00:00”) or relative (accepted string formatted like this “<integer> <epoch>”, where epoch could be any of following strings (could optionally end with trailing ‘s’): hour, day, week, month, year)
+   ``if time.observation :before '1 week' { ... }``
+
+ * `:after`  tests if the date value occurred after given time ago; see `:before`
+    ``if time.observation :after '2015-09-12' { ... }  # happened after midnight the 12th Sep``
+
  * Boolean values can be matched with `==` or `!=` followed by `true` or `false`. Example:
    ``if extra.has_known_vulns == true { ... }``
 
@@ -3599,6 +3616,48 @@ xxx.xxx.xxx.xxx    Intel::ADDR    phishing    100    MISP XXX
 www.testdomain.com    Intel::DOMAIN    apt    85    CERT
 ```
 
+.. _intelmq.bots.outputs.cif3.output:
+
+CIF3 API
+^^^^^^^^
+
+**Information**
+
+* `name:` `intelmq.bots.outputs.cif3.output`
+* `lookup:` no
+* `public:` no
+* `cache (redis db):` none
+* `description:` Connect to a CIFv3 instance and add new indicator if not there already.
+
+The cifsdk library >= 3.0.0rc4,<4.0.0 is required, see
+`REQUIREMENTS.txt <https://github.com/certtools/intelmq/blob/master/intelmq/bots/outputs/cif3/REQUIREMENTS.txt>`_.
+
+**Configuration Parameters**
+
+* **Feed parameters** (see above)
+* `add_feed_provider_as_tag`: boolean (use `false` when in doubt)
+* `cif3_additional_tags`: list of tags to set on submitted indicator(s)
+* `cif3_feed_confidence`: float, used when mapping a feed's confidence fails or
+      if static confidence param is true
+* `cif3_static_confidence`: bool, when true it always sends the `cif3_feed_confidence` value
+      as confidence rather than dynamically interpret feed value (use false when in doubt)
+* `cif3_token`: str, API key for accessing CIF
+* `cif3_url`: str, URL of the CIFv3 instance
+* `fireball`: int, used to batch events before submitting to a CIFv3 instance
+      (default is 500 per batch, use 0 to disable batch and send each event as received)
+* `http_verify_cert`: bool, used to tell whether the CIFv3 instance cert should be verified
+      (default true, but can be set to false if using a local test instance)
+
+By default, CIFv3 does an upsert check and will only insert entirely new indicators. Otherwise,
+upsert matches will have their count increased by 1. By default, the CIF3 output bot will batch indicators
+up to 500 at a time prior to doing a single bulk send. If the output bot doesn't receive a full 500
+indicators within 5 seconds of the first received indicator, it will send what it has so far.
+
+CIFv3 should be able to process indicators as fast as IntelMQ can
+send them.
+
+(More details can be found in the docstring of `output.py <https://github.com/certtools/intelmq/blob/master/intelmq/bots/outputs/cif3/output.py>`_.
+
 .. _intelmq.bots.outputs.elasticsearch.output:
 
 Elasticsearch Output Bot
@@ -4004,6 +4063,73 @@ The prime motivation for creating this feature was to protect users from badness
 More information: https://dnsrpz.info
 
 
+.. _intelmq.bots.outputs.smtp_batch.output:
+
+SMTP Batch Output Bot
+
+Aggregate events by e-mail addresses in the `source.abuse_contact` field and batch send them at once as a zipped CSV file attachment in a GPG signed message.
+
+**Information**
+
+* `name:` intelmq.bots.outputs.smtp_batch.output
+* `lookup:` no
+* `public:` yes
+* `cache (redis db):` none
+* `description:` Sends events collected over a period of time via SMTP in a GPG signed messages
+
+**Configuration Parameters**
+
+* `alternative_mails`: string or null. Path to CSV in the form `original@email.com,alternative@email.com`.
+   - Needed when some of the recipients ask you to forward their e-mails to another address.
+* `attachment_name`: string. Attachment file name for the outgoing messages. May contain date formatting like this `%Y-%m-%d`. Example: "events_%Y-%m-%d" will appear as "events_2022-12-01.zip".
+* `bcc`: list or null. A list of e-mails to be put in the `Bcc` field for every mail.
+* `email_from`: string. Sender's e-mail of the outgoing messages.
+* `gpg_key`: string or null. The Key or the fingerprint of a GPG key stored in ~/.gnupg keyring folder.
+* `gpg_pass`: string or null. Password for the GPG key if needed.
+* `mail_template`: string. Path to the file containing the body of the mail for the outgoing messages.
+* `ignore_older_than_days`: int or null, default 0. If 1..n skip all events with time.observation older than 1..n day; 0 disabled (allow all).
+   - If your queue gets stuck for a reason, you do not want to send old (and probably already solved) events.
+* `limit_results`: int or null. Intended as a debugging option, allows loading just first N e-mails from the queue.
+* `redis_cache_db`: int. Redis database used for event aggregation. As the databases < 10 are reserved for the IntelMQ core, recommended is a bigger number.
+* `redis_cache_host`: string
+* `redis_cache_port`: int
+* `redis_cache_ttl`: int. Recommended 1728000 for 20 days.
+* `smtp_server`: mixed. SMTP server information and credentials.
+   - See SMTP parameter of https://github.com/CZ-NIC/envelope#sending
+   - Examples: "mailer", `{"host": "mailer", "port": 587, "user": "john", "password": "123"}`, `["mailer", 587, "john", "password"]`
+* `subject`: string. Subject for the outgoing messages. May contain date formatting like this `%Y-%m-%d`. Example: "IntelMQ weekly warning (%d.%m.%Y)".
+* `testing_to`: string or null. Tester's e-mail.
+
+When the bot is run normally by IntelMQ, it just aggregates the events for later use into a custom Redis database.
+If run through CLI (by a cron or manually), it shows e-mail messages that are ready to be sent and let you send them to the tester's e-mail OR to abuse contact e-mails.
+E-mails are sent in a zipped CSV file, delimited by a comma, while keeping strings in double quotes.
+Note: The field "raw" gets base64 decoded if possible. Bytes `\n` and `\r` are replaced with "\n" and "\r" strings in order to guarantee best CSV files readability both in Microsoft Office and LibreOffice. (A multiline string may be stored in "raw" which completely confused Microsoft Excel.)
+
+Launch it like that:
+`</usr/local/bin executable> <bot-id> cli [--tester tester's email]`
+Ex:
+`intelmq.bots.outputs.smtp_batch.output  smtp_batch-output-cz --cli --tester your-email@example.com`
+
+CLI flags:
+```
+  -h, --help            show this help message and exit
+  --cli                 initiate CLI interface
+  --tester TESTING_TO   tester's e-mail
+  --ignore-older-than-days IGNORE_OLDER_THAN_DAYS
+                        1..n skip all events with time.observation older than 1..n day; 0 disabled (allow all)
+  --gpg-key GPG_KEY     fingerprint of gpg key to be used
+  --limit-results LIMIT_RESULTS
+                        Just send first N mails.
+  --send                Sends now, without dialog.
+```
+
+You can schedule the batch sending easily with a cron script, I.E. put this into `crontab -e` of the `intelmq` user:
+
+```
+# Send the e-mails every day at 6 AM
+0 6 * * *  /usr/local/bin/intelmq.bots.outputs.smtp_batch.output smtp_batch-output-cz cli --ignore-older-than-days 4 --send > /tmp/intelmq-send.log
+```
+
 .. _intelmq.bots.outputs.smtp.output:
 
 SMTP Output Bot
@@ -4074,6 +4200,7 @@ The parameters marked with 'PostgreSQL' will be sent to libpq via psycopg2. Chec
 * `table`: name of the database table into which events are to be inserted
 * `fields`: list of fields to read from the event. If None, read all fields
 * `reconnect_delay`: number of seconds to wait before reconnecting in case of an error
+* `fail_on_errors`: If any error should cause the bot to fail (raise an exception) or otherwise rollback. If false (default), the bot eventually waits and re-try (e.g. re-connect) etc. to solve the issue. If true, the bot raises an exception and - depending on the IntelMQ error handling configuration - stops.
 
 PostgreSQL
 ~~~~~~~~~~
@@ -4181,7 +4308,7 @@ Also you will need a so called "exchange point".
 
 **Configuration Parameters**
 
-* `exchange`: The exchange to push at
+* `exchange`: STOMP *destination* to push at, e.g. "/exchange/_push"
 * `heartbeat`: default: 60000
 * `message_hierarchical_output`: Boolean, default: false
 * `message_jsondict_as_string`: Boolean, default: false
@@ -4190,8 +4317,11 @@ Also you will need a so called "exchange point".
 * `server`: Host or IP address of the STOMP server
 * `single_key`: Boolean or string (field name), default: false
 * `ssl_ca_certificate`: path to CA file
-* `ssl_client_certificate`: path to client cert file
-* `ssl_client_certificate_key`: path to client cert key file
+* `auth_by_ssl_client_certificate`: Boolean, default: true (note: set to false for new *n6* auth)
+* `ssl_client_certificate`: path to client cert file, used only if `auth_by_ssl_client_certificate` is true
+* `ssl_client_certificate_key`: path to client cert key file, used only if `auth_by_ssl_client_certificate` is true
+* `username`: STOMP *login* (e.g., *n6* user login), used only if `auth_by_ssl_client_certificate` is false
+* `password`: STOMP *passcode* (e.g., *n6* user API key), used only if `auth_by_ssl_client_certificate` is false
 
 
 .. _intelmq.bots.outputs.tcp.output:

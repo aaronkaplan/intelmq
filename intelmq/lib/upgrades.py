@@ -38,6 +38,7 @@ __all__ = ['v100_dev7_modify_syntax',
            'v301_deprecations',
            'v310_feed_changes',
            'v310_shadowserver_feednames',
+           'v320_update_turris_greylist_url',
            ]
 
 
@@ -808,10 +809,11 @@ def v310_feed_changes(configuration, harmonization, dry_run, **kwargs):
                 bot["module"] == "intelmq.bots.parsers.abusech.parser_domain"):
             found_abusech_removed_parsers.append(bot_id)
         if bot["module"] == "intelmq.bots.parsers.generic.parser_csv":
-            bot["parameters"]["default_fields"] = {
-                "classification.type": bot["parameters"]["type"]
-            }
-            del bot["parameters"]["type"]
+            if bot.get("parameters") and bot["parameters"].get("type"):
+                bot["parameters"]["default_fields"] = {
+                    "classification.type": bot["parameters"]["type"]
+                }
+                del bot["parameters"]["type"]
         if bot["module"] == "intelmq.bots.parsers.taichung.parser":
             found_taichung.append(bot_id)
 
@@ -861,6 +863,22 @@ def v310_feed_changes(configuration, harmonization, dry_run, **kwargs):
     return messages + ' Remove affected bots yourself.' if messages else None, configuration, harmonization
 
 
+def v320_update_turris_greylist_url(configuration, harmonization, dry_run, **kwargs):
+    """
+    Updates Turris Greylist feed URL.
+    """
+
+    messages = []
+
+    for bot_id, bot in configuration.items():
+        if bot.get("module") == "intelmq.bots.collectors.http.collector":
+            if bot.get("parameters", {}).get("http_url", "").startswith("https://project.turris.cz/greylist-data/greylist-latest.csv"):
+                bot["parameters"]["http_url"] = "https://view.sentinel.turris.cz/greylist-data/greylist-latest.csv"
+                messages.append("Turris Greylist feed URL updated.")
+
+    return ' '.join(messages) if messages else None, configuration, harmonization
+
+
 UPGRADES = OrderedDict([
     ((1, 0, 0, 'dev7'), (v100_dev7_modify_syntax,)),
     ((1, 1, 0), (v110_shadowserver_feednames, v110_deprecations)),
@@ -886,6 +904,7 @@ UPGRADES = OrderedDict([
     ((3, 0, 1), (v301_deprecations,)),
     ((3, 0, 2), ()),
     ((3, 1, 0), (v310_feed_changes, v310_shadowserver_feednames)),
+    ((3, 2, 0), (v320_update_turris_greylist_url,)),
 ])
 
 ALWAYS = (harmonization,)

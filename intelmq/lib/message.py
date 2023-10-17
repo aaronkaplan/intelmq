@@ -13,7 +13,8 @@ import json
 import re
 import warnings
 from collections import defaultdict
-from typing import Any, Dict, Iterable, Optional, Sequence, Union
+from typing import Any, Dict, Iterable, Optional, Sequence, Union, Tuple
+from pkg_resources import resource_filename
 
 import intelmq.lib.exceptions as exceptions
 import intelmq.lib.harmonization
@@ -56,8 +57,10 @@ class MessageFactory:
                                              got=message["__type"],
                                              expected=VALID_MESSSAGE_TYPES,
                                              docs=HARMONIZATION_CONF_FILE)
-        del message["__type"]
-        return class_reference(message, auto=True, harmonization=harmonization)
+        # don't modify the parameter
+        message_copy = message.copy()
+        del message_copy["__type"]
+        return class_reference(message_copy, auto=True, harmonization=harmonization)
 
     @staticmethod
     def unserialize(raw_message: str, harmonization: dict = None,
@@ -103,7 +106,11 @@ class Message(dict):
             classname = self.__class__.__name__.lower()
 
         if harmonization is None:
-            harmonization = utils.load_configuration(HARMONIZATION_CONF_FILE)
+            try:
+                harmonization = utils.load_configuration(HARMONIZATION_CONF_FILE)
+            except ValueError:
+                # Fallback to internal harmonization file
+                harmonization = utils.load_configuration(resource_filename('intelmq', 'etc/harmonization.conf'))
         try:
             self.harmonization_config = harmonization[classname]
         except KeyError:
@@ -179,8 +186,9 @@ class Message(dict):
             intelmq.lib.exceptions.InvalidKey: if given key is invalid.
 
         """
-        if not self.__is_valid_key(key):
-            raise exceptions.InvalidKey(key)
+        key_validation = self.__is_valid_key(key)
+        if not key_validation[0]:
+            raise exceptions.InvalidKey(key, additional_text=key_validation[1])
 
         if value is None or value in ["", "-", "N/A"]:
             return False
@@ -236,8 +244,9 @@ class Message(dict):
                 del self[key]
             return
 
-        if not self.__is_valid_key(key):
-            raise exceptions.InvalidKey(key)
+        key_validation = self.__is_valid_key(key)
+        if not key_validation[0]:
+            raise exceptions.InvalidKey(key, additional_text=key_validation[1])
 
         try:
             if value in ignore:
@@ -323,16 +332,16 @@ class Message(dict):
         message = json.loads(message_string)
         return message
 
-    def __is_valid_key(self, key: str):
+    def __is_valid_key(self, key: str) -> Tuple[bool, str]:
         try:
             class_name, subitem = self.__get_type_config(key)
         except KeyError:
-            return False
+            return False, 'This key is not allowed by the harmonization configuration'
         if key in self.harmonization_config or key == '__type':
-            return True
+            return True, None
         if subitem:
-            return HARMONIZATION_KEY_FORMAT.match(key)
-        return False
+            return HARMONIZATION_KEY_FORMAT.match(key), f'Does not match regular expression {HARMONIZATION_KEY_FORMAT.pattern}'
+        return False, 'This key is not allowed by the harmonization configuration'
 
     def __is_valid_value(self, key: str, value: str):
         if key == '__type':
@@ -562,7 +571,7 @@ class Report(Message):
         if isinstance(message, Event):
             super().__init__({}, auto, harmonization)
             for key, value in message.items():
-                if self._Message__is_valid_key(key):
+                if self._Message__is_valid_key(key)[0]:
                     self.add(key, value, sanitize=False)
         else:
             super().__init__(message, auto, harmonization)
