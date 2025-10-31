@@ -17,7 +17,7 @@ REQUIRES = [
     'redis>=2.10',
     'requests>=2.2.0',
     'ruamel.yaml',
-    'importlib-metadata; python_version < "3.8"'
+    'packaging',
 ]
 
 TESTS_REQUIRES = [
@@ -56,7 +56,7 @@ setup(
     version=__version__,  # noqa: F821
     maintainer='Sebastian Wagner',
     maintainer_email='intelmq-dev@lists.cert.at',
-    python_requires='>=3.7',
+    python_requires='>=3.9',
     install_requires=REQUIRES,
     tests_require=TESTS_REQUIRES,
     test_suite='intelmq.tests',
@@ -67,7 +67,7 @@ setup(
     include_package_data=True,
     url='https://github.com/certtools/intelmq/',
     project_urls={
-        'Documentation': 'https://intelmq.readthedocs.io/',
+        'Documentation': 'https://docs.intelmq.org/',
         'Source and Issue Tracker': 'https://github.com/certtools/intelmq/',
     },
     license='AGPLv3',
@@ -85,11 +85,11 @@ setup(
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: 3 :: Only',
         'Programming Language :: Python :: Implementation :: CPython',
         'Topic :: Security',

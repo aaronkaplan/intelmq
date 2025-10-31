@@ -34,7 +34,7 @@ def style_error_format(style_error_list) -> str:
     """ Format the list of pycodestyle errors and return them a one string. """
     ret = ''
     for error in style_error_list:
-        ret += '* {}\n'.format(error)
+        ret += f'* {error}\n'
     return ret
 
 
@@ -45,7 +45,7 @@ if __name__ == "__main__":
         style_errors = list_style_errors()
 
         if style_errors:
-            print("Found {} errors.".format(len(style_errors)))
+            print(f"Found {len(style_errors)} errors.")
 
         gh = github.Github()
 

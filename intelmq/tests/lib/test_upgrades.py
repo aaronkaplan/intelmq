@@ -516,7 +516,7 @@ V301_MALWAREDOMAINS_IN = {
         }
     },
     "malwaredomains-collector": {
-        "module": "intelmq.bots.collectors.http.collector",
+        "module": "intelmq.bots.collectors.http.collector_http",
         "parameters": {
             "http_url": "http://mirror1.malwaredomains.com/files/domains.txt"
         }
@@ -530,13 +530,13 @@ V310_FEED_CHANGES = {
         }
     },
     "autoshun-collector": {
-        "module": "intelmq.bots.collectors.http.collector",
+        "module": "intelmq.bots.collectors.http.collector_http",
         "parameters": {
             "http_url": "https://www.autoshun.org/download"
         }
     },
     "malc0de-collector": {
-        "module": "intelmq.bots.collectors.http.collector",
+        "module": "intelmq.bots.collectors.http.collector_http",
         "parameters": {
             "http_url": "https://malc0de.com/bl/ZONES"
         }
@@ -586,7 +586,7 @@ V322_DISCONTINUED_BOTS_AND_FEEDS_IN = {
         "module": "intelmq.bots.parsers.netlab_360.parser"
     },
     "sucuri-collector": {
-        "module": "intelmq.bots.collectors.http.collector",
+        "module": "intelmq.bots.collectors.http.collector_http",
         "parameters": {
             "http_url": "http://labs.sucuri.net/?malware"
         }
@@ -597,6 +597,40 @@ V322_DISCONTINUED_BOTS_AND_FEEDS_OUT = """\
 Found discontinued bots: sucuri-parser, webinspektor-parser, netlab360-parser
 Found discontinued feeds collected by bots: sucuri-collector
 Remove the affected bots from the configuration."""
+
+V340_TWITTER_PARSER_IN = {
+    "global": {},
+    "twitter-parser": {
+        "module": "intelmq.bots.parsers.twitter.parser",
+    },
+}
+V340_TWITTER_PARSER_OUT = {
+    "global": {},
+    "twitter-parser": {
+        "module": "intelmq.bots.parsers.ioc_extractor.parser"
+    },
+}
+V340_TWITTER_COLLECTOR_IN = {
+    "global": {},
+    "twitter-collector": {
+        "module": "intelmq.bots.collectors.twitter.collector",
+    },
+}
+V350_FEED_REMOVAL = {
+    "global": {},
+    "blueliv-collector": {
+        "module": "intelmq.bots.collectors.blueliv.collector_crimeserver"
+    },
+    "blueliv-parser": {
+        "module": "intelmq.bots.parsers.blueliv.parser_crimeserver"
+    },
+    "viriback-collector": {
+        "module": "intelmq.bots.collectors.http.collector_http",
+        "parameters": {
+            "http_url": "https://tracker.viriback.com/dump.php"
+        }
+    }
+}
 
 
 def generate_function(function):
@@ -823,6 +857,39 @@ class TestUpgradeLib(unittest.TestCase):
         """ Test v322_removed_feeds_and_bots """
         result = upgrades.v322_removed_feeds_and_bots(V322_DISCONTINUED_BOTS_AND_FEEDS_IN, {}, False)
         self.assertEqual(V322_DISCONTINUED_BOTS_AND_FEEDS_OUT, result[0])
+
+    def test_v340_twitter_parser(self):
+        """ Test v340_deprecations with a Twitter parser """
+        result = upgrades.v340_deprecations(V340_TWITTER_PARSER_IN, {}, False)
+        self.assertTrue(result[0])
+        self.assertEqual(V340_TWITTER_PARSER_OUT, result[1])
+
+    def test_v340_twitter_collector(self):
+        """ Test v340_deprecations with a Twitter collector """
+        result = upgrades.v340_deprecations(V340_TWITTER_COLLECTOR_IN, {}, False)
+        self.assertIn('twitter-collector', result[0])
+        self.assertEqual(V340_TWITTER_COLLECTOR_IN, result[1])
+
+    def test_v350_feed(self):
+        """ Test v350_feed_removals deprecation warning """
+        result = upgrades.v350_feed_removals(V350_FEED_REMOVAL, {}, False)
+        self.assertIn('blueliv-collector', result[0])
+        self.assertIn('blueliv-parser', result[0])
+        self.assertIn('viriback-collector', result[0])
+        self.assertEqual(V350_FEED_REMOVAL, result[1])
+
+    def test_v350_new_fields(self):
+        """ Test adding new harmonisation fields """
+        result = upgrades.v350_new_fields({}, {"event": {"old-field": "must stay"}}, False)
+        self.assertTrue(result[0])
+        self.assertIn("old-field", result[2]["event"])
+        self.assertIn("product.full_name", result[2]["event"])
+        self.assertIn("product.name", result[2]["event"])
+        self.assertIn("product.vendor", result[2]["event"])
+        self.assertIn("product.version", result[2]["event"])
+        self.assertIn("product.vulnerabilities", result[2]["event"])
+        self.assertIn("old-field", result[2]["event"])
+        self.assertIn("severity", result[2]["event"])
 
 
 for name in upgrades.__all__:

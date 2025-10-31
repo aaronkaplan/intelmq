@@ -17,7 +17,7 @@ different.
 -   Check the upgrade functions in `intelmq/lib/upgrades.py`.
 -   Close the milestone on GitHub and move any open issues to the next
     one.
--   `docs/user/installation.rst`: Update supported operating systems.
+-   `docs/admin/installation/linux-packages.md`: Update supported operating systems.
 
 ## Documentation
 
@@ -30,8 +30,6 @@ These apply to all projects:
 
 - `intelmq/version.py`: Update the version.
 
-Eventually adapt the default log levels if necessary. Should be INFO for stable releases.
-
 ### IntelMQ API
 
 -   `intelmq_api/version.py`: Update the version.
@@ -39,22 +37,21 @@ Eventually adapt the default log levels if necessary. Should be INFO for stable 
 ### IntelMQ Manager
 
 -   `intelmq_manager/version.py`: Update the version.
--   `intelmq_manager/static/images/js/about.js`: Update the version.
+-   `intelmq_manager/static/js/about.js`: Update the version.
 
 ## Commit, push, review and merge
 
-Commit your changes in a separate branch, the final commit message
-should start with `REL:`. Push and create a pull request to maintenance
-and after that from maintenance to master. Someone else should review
-the changes. Eventually fix them, make sure the `REL:` is the last
-commit, you can also push that one at last, after the reviews.
+Commit your changes in a separate branch, the final commit message should start
+with `REL:`. Push and create a pull request to the `develop` branch. Someone
+else should review the changes. Eventually fix them, make sure the `REL:` is
+the last commit, you can also push that one at last, after the reviews.
 
 Why a separate branch? Because if problems show up, you can still
 force-push to that one, keeping the release commit the latest one.
 
 ## Tag and release
 
-Tag the commit with `git tag -s version HEAD`, merge it into master,
+Tag the commit with `git tag -s version HEAD`, merge it into `develop`,
 push the branches *and* the tag. The tag is just `a.b.c`, not prefixed
 with `v` (that was necessary only with SVN a long time ago...).
 
@@ -76,7 +73,7 @@ python3 setup.py sdist bdist_wheel
 
 ## Documentation
 
-Got to `the version settings on readthedocs <https://readthedocs.org/projects/intelmq/versions/>`_ and activate build for the new version.
+Since using mkdocs (see https://docs.intelmq.org) nothing needs to be done anymore.
 
 ## Packages
 
@@ -109,9 +106,8 @@ Releasing a new Docker image is very easy.
 
 ## Announcements
 
-Announce the new version at the mailinglists intelmq-users, intelmq-dev.
-For bigger releases, probably also at IHAP, Twitter, etc. Ask your
-favorite social media consultant.
+Announce the new version at the mailinglists [intelmq-users](https://lists.cert.at/mailman3/hyperkitty/list/intelmq-users@lists.cert.at/), [intelmq-dev](https://lists.cert.at/mailman3/hyperkitty/list/intelmq-dev@lists.cert.at/) and on [ossbase.org](https://ossbase.org/).
+For bigger releases, also at IHAP, X, etc.
 
 ## Prepare new version
 

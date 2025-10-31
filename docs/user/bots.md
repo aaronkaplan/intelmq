@@ -12,7 +12,7 @@ This document contains complete reference of bots implemented by IntelMQ and how
 Each bot has it's own configuration. The configuration consists of two types of parameters:
 
 - **Generic parameters** that are common to all the bots and need to be set for each bot.
-  
+
 - **Runtime parameters** are needed by the bot itself during runtime. Some of these parameters can be inherited from the [global configuration](../admin/configuration/intelmq.md#runtimeyaml) (which is applied to all the bots), but can be overridden in the individual bot configuration.
 
 ## Generic Parameters
@@ -350,6 +350,7 @@ the line) or not. Defaults to true.
 ### Generic Mail URL Fetcher <div id="intelmq.bots.collectors.mail.collector_mail_url" />
 
 Extracts URLs from e-mail messages and downloads the content from the URLs.
+It uses the [`imbox`](https://github.com/martinrusev/imbox) library.
 
 The resulting reports contain the following special fields:
 
@@ -359,6 +360,8 @@ The resulting reports contain the following special fields:
 - `extra.email_from`: The email's from address.
 - `extra.email_message_id`: The email's message ID.
 - `extra.file_name`: The file name of the downloaded file (extracted from the HTTP Response Headers if possible).
+
+The fields can be used by parsers to identify the feed and are not automatically passed on to events.
 
 **Chunking**
 
@@ -392,6 +395,10 @@ limitation set `chunk_size` to something like 384000000 (~384 MB).
 
 (optional, boolean) Whether the mail server uses TLS or not. Defaults to true.
 
+**`mail_starttls`**
+
+(optional, boolean) Whether the mail server uses STARTTLS or not. Defaults to false.
+
 **`folder`**
 
 (optional, string) Folder in which to look for e-mail messages. Defaults to INBOX.
@@ -422,6 +429,7 @@ certificate is not found, the IMAP connection will fail on handshake. Defaults t
 ### Generic Mail Attachment Fetcher <div id="intelmq.bots.collectors.mail.collector_mail_attach" />
 
 This bot collects messages from mailboxes and downloads the attachments.
+It uses the [`imbox`](https://github.com/martinrusev/imbox) library.
 
 The resulting reports contains the following special fields:
 
@@ -431,6 +439,8 @@ The resulting reports contains the following special fields:
 - `extra.email_message_id`: The email's message ID
 - `extra.file_name`: The file name of the attachment or the file name in the attached archive if attachment is to
   uncompress.
+
+The fields can be used by parsers to identify the feed and are not automatically passed on to events.
 
 **Module:** `intelmq.bots.collectors.mail.collector_mail_attach`
 
@@ -442,7 +452,7 @@ The resulting reports contains the following special fields:
 
 **`mail_port`**
 
-(optional, integer) IMAP server port: 143 without TLS, 993 with TLS. Defaults to 143.
+(optional, integer) IMAP server port: 143 without TLS, 993 with TLS. Default depends on SSL setting.
 
 **`mail_user`**
 
@@ -456,6 +466,10 @@ The resulting reports contains the following special fields:
 
 (optional, boolean) Whether the mail server uses TLS or not. Defaults to true.
 
+**`mail_starttls`**
+
+(optional, boolean) Whether to use STARTTLS before authenticating to the server. Defaults to false.
+
 **`folder`**
 
 (optional, string) Folder in which to look for e-mail messages. Defaults to INBOX.
@@ -466,11 +480,27 @@ The resulting reports contains the following special fields:
 
 **`attach_regex`**
 
-(optional, string) Regular expression of the name of the attachment. Defaults to csv.zip.
+(optional, string) All attachments which match this [regular expression](https://docs.python.org/3/library/re.html#re.search) will be processed. Defaults to `csv.zip`.
 
 **`extract_files`**
 
 (optional, boolean) Whether to extract compress files from the attachment. Defaults to true.
+
+**`decrypt_openpgp`**
+
+(optional, boolean) Whether to decrypt the attachment with GPG. Defaults to false.
+
+**`openpgp_passphrase`**
+
+(optional, string) The OpenPGP private key passhrase.
+
+**`allow_empty`**
+
+(optional, boolean) Allow the attachment to be empty. If False (default), an error is raised and bot stays stopped.
+
+**`gpg_home`**
+
+(optional, string) Change the GPG home directory.
 
 **`sent_from`**
 
@@ -930,7 +960,7 @@ oldest files available!).
 
 The resulting reports contain the following special field:
 
-- `extra.file_name`: The name of the downloaded file, with fixed filename extension. 
+- `extra.file_name`: The name of the downloaded file, with fixed filename extension.
 
 **Module:** `intelmq.bots.collectors.shadowserver.collector_reports_api`
 
@@ -946,7 +976,7 @@ The resulting reports contain the following special field:
 
 **`reports`**
 
-(required, string/array of strings) An array of strings (or a list of comma-separated values) of the mailing lists you want to process.
+(optional, string/array of strings) An array of strings (or a list of comma-separated values) of the mailing lists you want to process.
 
 **`types`**
 
@@ -990,9 +1020,17 @@ Requires the shodan library to be installed:
 
 Only the proxy is used (requires `shodan-python > 1.8.1`). Certificate is always verified.
 
+**`api_key`**
+
+Your Shodan API Key.
+
 **`countries`**
 
 () A list of countries to query for. If it is a string, it will be spit by `,`.
+
+**`alert`**
+
+() Alert ID from monitor.shodan.io.
 
 If the stream is interrupted, the connection will be aborted using the timeout parameter. No error will be logged if the
 number of consecutive connection fails does not reach the parameter
@@ -1000,6 +1038,30 @@ number of consecutive connection fails does not reach the parameter
 logging messages. The consecutive connection fails are reset if a data line has been successfully transferred. If the
 consecutive connection fails reaches the parameter `error_max_retries`, an exception will be thrown and `rate_limit`
 applies, if not null.
+
+---
+
+### Shodan Alert <div id="intelmq.bots.collectors.shodan.collector_alert" />
+
+Queries the Shodan Alert Streaming API.
+
+Configure Alerts in the Shodan Interface (Website or CLI tool), then receive the data on the alerts via the Streaming service.
+
+Requires the shodan library to be installed:
+
+- <https://github.com/achillean/shodan-python/>
+
+- <https://pypi.org/project/shodan/>
+
+**Module:** `intelmq.bots.collectors.shodan.collector_alert`
+
+**Parameters (also expects [feed parameters](#feed-parameters) and [HTTP parameters](#http-parameters)):**
+
+Of the generic HTTP parameters, only the proxy is used (requires `shodan-python > 1.8.1`). The API endpoint certificate is always verified.
+
+**`api_key`**
+
+Your Shodan API Key.
 
 ---
 
@@ -1024,34 +1086,6 @@ input. If you intend to link two IntelMQ instance via TCP, have a look at the TC
 **`port`**
 
 (required, integer) Port of destination server.
-
----
-
-### Blueliv Crimeserver <div id="intelmq.bots.collectors.blueliv.collector_crimeserver" />
-
-Collects report messages from Blueliv API.
-
-For more information visit <https://github.com/Blueliv/api-python-sdk>
-
-**Module:** `intelmq.bots.collectors.blueliv.collector_crimeserver`
-
-**Requirements**
-
-Install the required library:
-
-```bash
-pip3 install -r intelmq/bots/collectors/blueliv/REQUIREMENTS.txt
-```
-
-**Parameters (also expects [feed parameters](#feed-parameters)):**
-
-**`api_key`**
-
-(required, string) location of information resource, see <https://map.blueliv.com/?redirect=get-started#signup>
-
-**`api_url`**
-
-(optional, string) The optional API endpoint. Defaults to `https://freeapi.blueliv.com`.
 
 ---
 
@@ -1258,60 +1292,18 @@ Also, you will need to know an appropriate STOMP *destination* (aka
 
 (optional, string) Password to use.
 
----
-
-### Twitter (REMOVE?) <div id="intelmq.bots.collectors.twitter.collector_twitter" />
-
-Collects tweets.
-
-Collects tweets from target_timelines. Up to tweet_count tweets from each user and up to timelimit back in time. The
-tweet text is sent separately and if allowed, links to pastebin are followed and the text sent in a separate report
-
-**Module:** `intelmq.bots.collectors.twitter.collector_twitter`
-
-**Parameters (also expects [feed parameters](#feed-parameters)):**
-
-**`target_timelines`**
-
-() screen_names of twitter accounts to be followed
-
-**`tweet_count`**
-
-() number of tweets to be taken from each account
-
-**`timelimit`**
-
-() maximum age of the tweets collected in seconds
-
-**`follow_urls`**
-
-() list of screen_names for which URLs will be followed
-
-**`exclude_replies`**
-
-() exclude replies of the followed screen_names
-
-**`include_rts`**
-
-() whether to include retweets by given screen_name
-
-**`consumer_key`**
-
-() Twitter API login data
-
-**`consumer_secret`**
-
-() Twitter API login data
-
-**`access_token_key`**
-
-() Twitter API login data
-
-**`access_token_secret`**
-
-() Twitter API login data
-
 ## Parser Bots
+
+If not set differently during parsing, all parser bots copy the following fields from the report to an event:
+
+  - `feed.accuracy`
+  - `feed.code`
+  - `feed.documentation`
+  - `feed.name`
+  - `feed.provider`
+  - `feed.url`
+  - `rtir_id`
+  - `time.observation`
 
 ### Common parameters
 
@@ -1326,6 +1318,18 @@ example usage:
 defaults_fields:
   classification.type: c2-server
   protocol.transport: tcp
+```
+
+#### `copy_collector_provided_fields`
+
+(optional, list) List of additional fields to be copy from the report (only applied if parsing the
+event doesn't set the value).
+
+Example usage:
+
+```yaml
+copy_collector_provided_fields:
+  - extra.file_name
 ```
 
 ---
@@ -1395,16 +1399,6 @@ No additional parameters.
 Parses data from Blocklist.de feeds.
 
 **Module:** `intelmq.bots.parsers.blocklistde.parser`
-
-No additional parameters.
-
----
-
-### Blueliv Crimeserver <div id="intelmq.bots.parsers.blueliv.parser_crimeserver" />
-
-Parses data from Blueliv Crimeserver feed.
-
-**Module:** `intelmq.bots.parsers.blueliv.parser_crimeserver`
 
 No additional parameters.
 
@@ -1693,8 +1687,8 @@ available with their index.
 
 **`skip_header`**
 
-(optional, boolean/integer) Whether to skip the first N lines of the input (True -> 1, False -> 0). Lines starting
-with `#` will be skipped additionally, make sure you do not skip more lines than needed!
+(optional, boolean/integer) Whether to skip the first N lines of the input (true equals to 1, false requalis to 0). Lines starting
+with `#` will be skipped additionally, make sure you do not skip more lines than needed! Defaults to false/0.
 
 **`time_format`**
 
@@ -1935,11 +1929,68 @@ also <https://www.crummy.com/software/BeautifulSoup/bs4/doc/>). Defaults to `htm
 
 ---
 
-### JSON (TODO) <div id="intelmq.bots.parsers.json.parser" />
+### JSON <div id="intelmq.bots.parsers.json.parser" />
 
-TODO
+Parses JSON events that are already in IntelMQ format.
+If the input data did not contain the field `classification.type`, it is set to `undetermined`.
+
+Supports multiple different modes:
+
+#### Input data is one event
+Example:
+```json
+{ INTELMQ data... }
+```
+or:
+```
+{
+  INTELMQ data...
+}
+```
+
+Configuration:
+* `splitlines`: False
+* `multiple_events`: False
+
+#### Input data is in JSON stream format
+Example:
+```json
+{ INTELMQ data... }
+{ INTELMQ data... }
+{ INTELMQ data... }
+```
+
+Configuration:
+* `splitlines`: True
+* `multiple_events`: False
+
+#### Input data is a list of events
+Example:
+```json
+[
+  { INTELMQ data... },
+  { INTELMQ data... },
+  ...
+]
+```
+
+Configuration:
+* `splitlines`: False
+* `multiple_events`: True
+
+#### Configuration
 
 **Module:** `intelmq.bots.parsers.json.parser`
+
+**Parameters:**
+
+**`splitlines`**
+
+(optional, boolean) When the input file contains one JSON dictionary per line, set this to `true`. Defaults to `false`.
+
+**`multiple_events`**
+
+(optional, string) When the input file contains a JSON list of dictionaries, set this to `true`. Defaults to `false`.
 
 ---
 
@@ -2115,12 +2166,12 @@ No additional parameters.
 
 ---
 
-### Shadowserver <div id="intelmq.bots.parsers.shadowserver.parser" /> 
+### Shadowserver <div id="intelmq.bots.parsers.shadowserver.parser" />
 
 The Shadowserver parser operates on CSV formatted data.
 
 
-**How this bot works?**
+**How does this bot work?**
 
 There are two possibilities for the bot to determine which report type the data belongs to in order to determine the
 correct mapping of the columns:
@@ -2128,11 +2179,11 @@ correct mapping of the columns:
 1. **Automatic report type detection**
 
     Since IntelMQ version 2.1 the parser can detect the feed based on metadata provided by the collector.
-    
+
     When processing a report, this bot takes `extra.file_name` from the report and looks in `config.py` how the report
     should be parsed. If this lookup is not possible, and the `feedname` is not given as parameter, the feed cannot be
     parsed.
-    
+
     The field `extra.file_name` has the following structure: `%Y-%m-%d-${report_name}[-suffix].csv` where the optional
     suffix can be something like `country-geo`. For example, some possible filenames
     are `2019-01-01-scan_http-country-geo.csv` or `2019-01-01-scan_tftp.csv`. The important part is the `report_name`,
@@ -2160,6 +2211,10 @@ For example using `curl -s https://interchange.shadowserver.org/intelmq/v1/schem
 **`overwrite`**
 
 (optional, boolean) If an existing `feed.name` should be overwritten.
+
+**`auto_update`**
+
+(optional, boolean) Enable automatic schema download.
 
 **Supported reports:**
 
@@ -2276,11 +2331,12 @@ No additional parameters.
 
 ---
 
-### Twitter <div id="intelmq.bots.parsers.twitter.parser" />
+### IoC Extractor (ex: Twitter) <div id="intelmq.bots.parsers.twitter.parser" /><div id="intelmq.bots.parsers.ioc_extractor.parser" />
 
 Extracts URLs from text, fuzzy, aimed at parsing tweets.
 
-**Module:** `intelmq.bots.parsers.twitter.parser`
+**Module:** `intelmq.bots.parsers.ioc_extractor.parser`<br>
+previously: `intelmq.bots.parsers.twitter.parser`
 
 **Parameters:**
 
@@ -2363,6 +2419,8 @@ No additional parameters.
 ### Aggregate <div id="intelmq.bots.experts.aggregate.expert" />
 
 Aggregates events based upon given fields & timespan.
+
+![Aggregate illustration](../static/images/bots/aggregate.svg)
 
 Define specific fields to filter incoming events and aggregate them. Also set the timespan you want the events to get
 aggregated.
@@ -2618,7 +2676,7 @@ When using a whitelist field pattern and a small number of fields (keys), it bec
 exist in the events themselves. If a field does not exist, but is part of the hashing/deduplication, this field will be
 ignored. If such events should not get deduplicated, you need to filter them out before the deduplication process, e.g.
 using a sieve expert. See
-also [this discussion thread](https://lists.cert.at/pipermail/intelmq-users/2021-July/000370.html) on the mailing-list.
+also [this discussion thread](https://lists.cert.at/mailman3/hyperkitty/list/intelmq-users@lists.cert.at/thread/V6YTF4XGALC37C666LPWQ6KK6CLAR6T2/) on the mailing-list.
 
 **Configuration Example**
 
@@ -2689,6 +2747,59 @@ is `$portal_url + '/api/1.0/ripe/contact?cidr=%s'`.
 
 ---
 
+### Fake <div id="intelmq.bots.experts.fake.expert" />
+
+Adds fake data to events. It currently supports two operation methods:
+
+* Setting the IP address and network
+* For any Event field, set the value to a random item of a user-defined list (mode `random_single_value`)
+
+For a detailed description of the modes, see below.
+
+**Module:** `intelmq.bots.experts.fake.expert`
+
+**Parameters:**
+
+**`database`**
+
+(required, string) Path to a JSON file in the following format (example):
+```
+{
+    "ip_network": [
+        "10.0.0.0/8",
+        "192.168.0.0/16",
+        ...
+    ],
+    "event_fields": {
+      "extra.severity": {
+        "mode": "random_single_value",
+        "values": ["critical", "high", "medium", "low", "info", "undefined"]
+      },
+      ...
+    }
+}
+```
+
+**`overwrite`**
+
+(optional, boolean) Whether to overwrite existing fields. Defaults to false.
+
+### Modes
+
+#### IP Network
+For each incoming event, the bots chooses one random IP network range (IPv4 or IPv6) from the configured data file.
+It set's the first IP address of the range as `source.ip` and the network itself as `source.network`.
+To adapt the `source.asn` field accordingly, use the [ASN Lookup Expert](#asn-lookup).
+
+For data consistency `source.network` will only be set if `source.ip` was set or overridden.
+If overwrite is false, `source.ip` was did not exist before but `source.network` existed before, `source.network` will still be overridden.
+
+#### Event fields
+##### Mode `random_single_value`
+For any possible event field, the bot chooses a random value of the values in the `values` property.
+
+---
+
 ### Field Reducer <div id="intelmq.bots.experts.field_reducer.expert" />
 
 The field reducer bot is capable of removing fields from events.
@@ -2722,25 +2833,23 @@ A simple filter for messages (drop or pass) based on a exact string comparison o
 
 **`filter_key`**
 
-() - key from data format
+(required, string) - key from data format
 
 **`filter_value`**
 
-() - value for the key
+(required, string) - value for the key
 
 **`filter_action`**
 
-() - action when a message match to the criteria
+(required, string) - action when a message match to the criteria
 (possible actions: keep/drop)
 
 **`filter_regex`**
 
-() - attribute determines if the `filter_value` shall be treated as regular expression or not.
+(optional, boolean) - attribute determines if the `filter_value` shall be treated as regular expression or not.
 
-If this attribute is not empty (can be `true`, `yes` or whatever), the bot uses python's `` `re.search ``
-<<https://docs.python.org/3/library/re.html#re.search>>`_ function to evaluate the filter with regular expressions. If
-this attribute is empty or evaluates to false, an exact string comparison is performed. A check on string *
-inequality* can be achieved with the usage of *Paths* described below.
+If this attribute is not empty (can be `true`, `yes` or whatever), the bot uses python's [`re.search`](https://docs.python.org/3/library/re.html#re.search) function to evaluate the filter with regular expressions. If
+this attribute is empty or evaluates to false, an exact string comparison is performed. A check on string *inequality* can be achieved with the usage of *Paths* described below.
 
 *Parameters for time based filtering*
 
@@ -2859,8 +2968,7 @@ Order of operation: `strip -> replace -> split`. These three methods can be comb
 
 ### Generic DB Lookup <div id="intelmq.bots.experts.generic_db_lookup.expert" />
 
-This bot is capable for enriching intelmq events by lookups to a database. Currently only PostgreSQL and SQLite are
-supported.
+This bot is capable for enriching intelmq events by lookups to a database. Currently PostgreSQL, SQLite, MSSQL, and MySQL/MariaDB are supported.
 
 If more than one result is returned, a ValueError is raised.
 
@@ -2872,7 +2980,7 @@ If more than one result is returned, a ValueError is raised.
 
 **`engine`**
 
-(required, string) Allowed values: `postgresql` or `sqlite`.
+(required, string) Allowed values: `postgresql`, `sqlite`, `mssql`, or `mysql`.
 
 **`database`**
 
@@ -2882,23 +2990,25 @@ If more than one result is returned, a ValueError is raised.
 
 (optional, string) Name of the table. Defaults to `contacts`.
 
-*PostgreSQL specific parameters*
+*Database server (i.e. not SQLite) specific parameters*
 
 **`host`**
 
-(optional, string) Hostname of the PostgreSQL server. Defaults to `localhost`.
+(optional, string) Hostname of the database server. Defaults to `localhost`.
 
 **`port`**
 
-(optional, integer) Port of the PostgreSQL server. Defaults to 5432.
+(optional, integer) Port of the database server. Defaults to 5432 (which is the default for PostgreSQL).
 
 **`user`**
 
-(optional, string) Username for accessing PostgreSQL. Defaults to `intelmq`.
+(optional, string) Username for accessing the database server. Defaults to `intelmq`.
 
 **`password`**
 
-(optional, string) Password for accessing PostgreSQL. Defaults to ?.
+(optional, string) Password for accessing the database server. Defaults to ?.
+
+*PostgreSQL specific parameters*
 
 **`sslmode`**
 
@@ -3186,7 +3296,7 @@ This bots allows you to change arbitrary field values of events using a configur
 
 (optional, boolean) Overwrite any existing fields by matching rules. Defaults to false.
 
-**Configuration File**
+#### Configuration File Format
 
 The modify expert bot allows you to change arbitrary field values of events just using a configuration file. Thus it is
 possible to adapt certain values or adding new ones only by changing JSON-files without touching the code of many other
@@ -3197,17 +3307,66 @@ The configuration is called `modify.conf` and looks like this:
 ```json
 [
   {
-    "rulename": "Standard Protocols http",
+    "rulename": "Name of Rule 1",
     "if": {
-      "source.port": "^(80|443)$"
+      "fieldname": "comparison_value"
     },
     "then": {
-      "protocol.application": "http"
+      "fieldname": "newvalue"
     }
   },
+  [...]
+]
+```
+
+Each rule consists of a *rule name*, *conditions* and *actions*:
+The rule name is for your own documentation and only used in debugging output.
+Conditions and actions are dictionaries holding the field names of
+events and regular expressions to match values (selection) or set values (action). All matching rules will be applied in
+the given order. The actions of a rule are only performed if all conditions of the rule apply.
+
+One configuration file can contain an arbitrary number of rules.
+
+#### Condition
+
+* **Empty string**: If the value for a condition is an empty string, the bot checks if the field does not exist. This is useful to apply default values for empty fields.
+* A non-empty **string**: The matching uses [regular expressions](https://docs.python.org/3/library/re.html#re.search) to match the field. Use explicit beginning and end markers to match the full string instead of a substring: `^regex$`.
+  If the field is not a string, it will be converted to a string first. This allows for matching numeric values with regular expressions.
+  To escape a character in the regular expression, JSON requires you to double-escape, for example, in `"extra.version": "^10\\.0"` the `.` is matched as literal character.
+* All **other types**: boolean, integer, float, etc: Direct equality comparison
+
+To check for the existence of a field, you can therefore always use the condition `"."`.
+
+#### Action
+
+You can set the value of the field to a string literal or number.
+
+In addition you can use the [standard Python string format syntax](https://docs.python.org/3/library/string.html#format-string-syntax) to access the values from the processed event as `msg` and the match groups of the conditions as `matches`, see the bitdefender example above. Group 0 ([`0`]) contains the full matching string. See also the documentation on [re.Match.group](https://docs.python.org/3/library/re.html?highlight=re%20search#re.Match.group).
+
+Setting a field to an empty string deletes the field, for example:
+```json
+[
   {
+    "rulename": "Delete NAICS",
+    "if": {
+      "extra.naics": "."
+    },
+    "then": {
+      "extra.naics": ""
+    }
+  }
+]
+```
+The same effect can be achieved with the [Field Reducer Expert](#intelmq.bots.experts.field_reducer.expert).
+
+#### Examples
+
+```json
+[
+{
     "rulename": "Spamhaus Cert conficker",
     "if": {
+     "feed.name": "^Spamhaus Cert$",
       "malware.name": "^conficker(ab)?$"
     },
     "then": {
@@ -3215,8 +3374,9 @@ The configuration is called `modify.conf` and looks like this:
     }
   },
   {
-    "rulename": "bitdefender",
+    "rulename": "Spamhaus Cert bitdefender",
     "if": {
+     "feed.name": "^Spamhaus Cert$",
       "malware.name": "bitdefender-(.*)$"
     },
     "then": {
@@ -3224,16 +3384,7 @@ The configuration is called `modify.conf` and looks like this:
     }
   },
   {
-    "rulename": "urlzone",
-    "if": {
-      "malware.name": "^urlzone2?$"
-    },
-    "then": {
-      "classification.identifier": "urlzone"
-    }
-  },
-  {
-    "rulename": "default",
+    "rulename": "Spamhaus Cert default",
     "if": {
       "feed.name": "^Spamhaus Cert$"
     },
@@ -3244,44 +3395,14 @@ The configuration is called `modify.conf` and looks like this:
 ]
 ```
 
-In our example above we have five groups labeled `Standard Protocols http`, `Spamhaus Cert conficker`,
-`bitdefender`, `urlzone` and `default`. All sections will be considered, in the given order (from top to bottom).
+In our example above we have three rules named `Spamhaus Cert conficker`,
+`Spamhaus Cert bitdefender` and `Spamhaus Cert default`.
 
-Each rule consists of *conditions* and *actions*. Conditions and actions are dictionaries holding the field names of
-events and regular expressions to match values (selection) or set values (action). All matching rules will be applied in
-the given order. The actions are only performed if all selections apply.
+Assume we have an event with `feed.name = Spamhaus Cert` and `malware.name = confickerab`, and `maximum_matches` is set to 1.
 
-If the value for a condition is an empty string, the bot checks if the field does not exist. This is useful to apply
-default values for empty fields.
+The expert loops over all sections in the file, and the first matching one is `Spamhaus Cert conficker`. It applies the action, setting the new `classification.identifier` and then stops, as the maximum matches has been reached.
 
-**Actions**
-
-You can set the value of the field to a string literal or number.
-
-In addition you can use the [standard Python string format syntax](https://docs.python.org/3/library/string.html#format-string-syntax) to access the values from the processed event as `msg` and the match groups of the conditions as `matches`, see the bitdefender example above. Group 0 ([`0`]) contains the full matching string. See also the documentation on [re.Match.group](https://docs.python.org/3/library/re.html?highlight=re%20search#re.Match.group).
-
-Note that `matches` will also contain the match groups from the default conditions if there were any.
-
-**Examples**
-
-We have an event with `feed.name = Spamhaus Cert` and `malware.name = confickerab`. The expert loops over all sections
-in the file and eventually enters section `Spamhaus Cert`. First, the default condition is checked, it matches!
-OK, going on. Otherwise the expert would have selected a different section that has not yet been considered. Now, go
-through the rules, until we hit the rule `conficker`. We combine the conditions of this rule with the default
-conditions, and both rules match! So we can apply the action: `classification.identifier` is set to `conficker`, the
-trivial name.
-
-Assume we have an event with `feed.name = Spamhaus Cert` and `malware.name = feodo`. The default condition matches, but
-no others. So the default action is applied. The value for `classification.identifier` will be set to `feodo`
-by `{msg[malware.name]}`.
-
-**Types**
-
-If the rule is a string, a regular expression search is performed, also for numeric values (`str()` is called on them).
-If the rule is numeric for numeric values, a simple comparison is done. If other types are mixed, a warning will be
-thrown.
-
-For boolean values, the comparison value needs to be `true` or `false` as in JSON they are written all-lowercase.
+Assume we have an event with `feed.name = Spamhaus Cert` and `malware.name = feodo`. The first and only matching rule is the `default`. So the default action is applied. The value for `classification.identifier` will be set to `feodo` by `{msg[malware.name]}`.
 
 ---
 
@@ -3483,6 +3604,56 @@ true.
 
 ---
 
+### SecurityTXT <div id="intelmq.bots.experts.securitytxt.expert" />
+
+SecurityTXT is an initiative to standardize how websites publish their abuse contact information.
+It is standardized in [RFC 9116 "A File Format to Aid in Security Vulnerability Disclosure"](https://datatracker.ietf.org/doc/rfc9116/).
+Refer to the linked document RFC for more information on `security.txt`.
+This bot looks for `security.txt` files on a URL or IP, retrieves the primary contact information out of it and adds this to the event.
+
+**Requirements**
+
+To use this bot, you need to install the required dependencies:
+
+```bash
+pip3 install -r intelmq/bots/experts/securitytxt/REQUIREMENTS.txt
+```
+
+**Module:** `intelmq.bots.experts.securitytxt.expert`
+
+**Parameters**
+
+**`url_field`**
+
+The field in the event that contains the URL/IP on which to look for the the security.txt file. Default: `source.reverse_dns`
+
+**`contact_field`**
+
+The field in the event in which to put the found contact details. Default: `source.abuse_contact`
+
+**`only_email_address`** (bool)
+
+Contact details can be web URLs or email addresses. When this value is set to True, it only selects email addresses as contact information.
+Default: `true`
+
+**`overwrite`** (bool)
+
+Boolean indicating whether to override existing data in contact_field.
+Default: `true`
+
+**`check_expired`** (bool)
+
+Boolean indicating whether to check if the security.txt has expired according to its own expiry date.
+Default: `false`
+
+**`check_canonical`** (bool)
+
+Boolean indicating whether to check if the url is contained in the list of canonical urls.
+Default: `false`
+
+
+---
+
 ### Sieve <div id="intelmq.bots.experts.sieve.expert" />
 
 This bot is used to filter and/or modify events based on a set of rules. The rules are specified in an external
@@ -3578,9 +3749,11 @@ if :exists source.fqdn { ... }
 if feed.name != 'acme-security' || feed.accuracy == 100 || extra.false_positive == false { ... }
 ```
 
-- `:contains` matches on substrings.
+- `:contains` matches on substrings ([`str.find`](https://docs.python.org/3/library/stdtypes.html#str.find)).
 
 - `=~` matches strings based on the given regular expression. `!~` is the inverse regular expression match.
+
+- For `:contains`, `=~` and `!~`, the value is converted to string before matching. If the value is a dict, convert the value to JSON.
 
 - Numerical comparisons are evaluated with `<`, `<=`, `>`, `>=`.
 
@@ -3646,9 +3819,9 @@ if extra.tags :supersetof ['iot', 'vulnerable'] { ... }
 ```
 if time.observation :before '1 week' { ... }
 ```
-  
+
 * `:after`  tests if the date value occurred after given time ago; see `:before`
-  
+
 ```
 if time.observation :after '2015-09-12' { ... }  # happened after midnight the 12th Sep
 ```
@@ -4408,11 +4581,11 @@ Using 'intelmq' as the `elastic_index`, the following are examples of the genera
 
 **`http_username`**
 
-(optional, string) HTTP basic authentication username.
+(optional, string) HTTP basic authentication username. Also set `http_password`.
 
 **`http_password`**
 
-(optional, string) HTTP basic authentication password.
+(optional, string) HTTP basic authentication password. Also set `http_username`.
 
 **`use_ssl`**
 
@@ -4563,6 +4736,12 @@ Create a directory layout in the MISP Feed format.
 The PyMISP library >= 2.4.119.1 is required, see
 [REQUIREMENTS.txt](https://github.com/certtools/intelmq/blob/master/intelmq/bots/outputs/misp/REQUIREMENTS.txt).
 
+Note: please test the produced feed before using in production. This bot allows you to do an
+extensive customisation of the MISP feed, including creating multiple events and tags, but it can
+be tricky to configure properly. Misconfiguration can prevent bot from starting or have bad
+consequences for your MISP Instance (e.g. spaming with events). Use `intelmqctl check` command
+to validate your configuration against common mistakes.
+
 **Module:** `intelmq.bots.outputs.misp.output_feed`
 
 **Parameters:**
@@ -4586,6 +4765,144 @@ The PyMISP library >= 2.4.119.1 is required, see
 
 () The output bot creates one event per each interval, all data in this time frame is part of this event. Default "1
 hour", string.
+
+**`bulk_save_count`**
+
+(optional, int) If set to a non-0 value, the bot won't refresh the MISP feed immediately, but will cache
+incoming messages until the given number of them. Use it if your bot proceeds a high number of messages
+and constant saving to the disk is a problem. Reloading or restarting bot as well as generating
+a new MISP event based on `interval_event` triggers regenerating MISP feed regardless of the cache size.
+
+**`attribute_mapping`**
+
+(optional, dict) If set, allows selecting which IntelMQ event fields are mapped to MISP attributes
+as well as attribute parameters (like e.g. a comment). The expected format is a *dictionary of dictionaries*:
+first-level key represents an IntelMQ field that will be directly translated to a MISP attribute; nested
+dictionary represents additional parameters PyMISP can take when creating an attribute. They can use
+names of other IntelMQ fields (then the value of such field will be used), or static values. If not needed,
+leave empty dict.
+
+For available attribute parameters, refer to the
+[PyMISP documentation](https://pymisp.readthedocs.io/en/latest/_modules/pymisp/mispevent.html#MISPObjectAttribute)
+for the `MISPObjectAttribute`.
+
+For example:
+
+```yaml
+attribute_mapping:
+  source.ip: {}
+  feed.name:
+    comment: event_description.text
+  destination.ip:
+    to_ids: False
+```
+
+would create a MISP object with three attributes `source.ip`, `feed.name` and `destination.ip`
+and set their values as in the IntelMQ event. In addition, the `feed.name` would have a comment
+as given in the `event_description.text` from IntelMQ event, and `destination.ip` would be set
+as not usable for IDS. You can use `type` key to overwrite the attribute type.
+
+**`grouping_key`
+
+(optional, string): If set to a field name from IntelMQ event, the bot will work in parallel on a few
+events instead of saving all incoming messages to a one. Each unique value from the field will
+use its own MISP Event. This is useful if your feed provides data about multiple entities you would
+like to group, for example IPs of C2 servers from different botnets. For a given value, the bot will
+use the same MISP Event as long as it's allowed by the `interval_event`.
+
+**`additional_info`
+
+(optional, string): If set, the generated MISP Event will use it in the `info` field of the event,
+in addition to the standard IntelMQ description with the time frame (you cannot remove it as the bot
+depends of datetimes saved there). If you use `grouping_key`, you may want to use `{key}`
+placeholder which will be then replaced with the value of the grouping key.
+
+For example, the following configuration can be used to create MISP Feed with IPs of C2 servers
+of different botnets, having each botnet in a separated MISP Events with an appropriate description.
+Each MISP Event will contain objects with the `source.ip` field only, and the events' info will look
+like *C2 Servers for botnet-1. IntelMQ event 2024-07-09T14:51:10.825123 - 2024-07-10T14:51:10.825123*
+
+```yaml
+grouping_key: malware.name
+additional_info: C2 Servers for {key}.
+attribute_mapping:
+  source.ip:
+```
+
+**`tagging`
+
+(optional, dict): Allows setting MISP tags to MISP events. The structure is a *dict of list of dicts*.
+The keys refers to which MISP events you want to tag. If you want to tag all of them, use `__all__`.
+If you use `event_separator` and want to add additional tags to some events, use the expected values
+of the separation field. The *list of dicts* defines MISP tags as parameters to create `MISPTag`
+objects from. Each dictionary has to have at least `name`. For all available parameters refer to the
+[PyMISP documentation](https://pymisp.readthedocs.io/en/latest/_modules/pymisp/abstract.html#MISPTag)
+for `MISPTag`.
+
+Note: setting `name` is enough for MISP to match a correct tag from the global collection. You may
+see it lacking the colour in the MISP Feed view, but it will be retriven after importing to your
+instance.
+
+Example 1 - set two tags for every MISP event:
+
+```yaml
+tagging:
+  __all__:
+    - name: tlp:red
+    - name: source:intelmq
+```
+
+Example 2 - create separated events based on `malware.name` and set additional family tag:
+
+```yaml
+event_separator: malware.name
+tagging:
+  __all__:
+    - name: tlp:red
+  njrat:
+    - name: njrat
+```
+
+** `flat_events`
+
+(optional, bool): instead of creating an object for every incoming IntelMQ message, it will add
+attributes directly to the MISP event. Useful if your want to export just a list of data, e.g.
+C2 domains, without having to group some attributes together. When using flat events, you
+have to define custom mapping to ensure the correct attribute types. By default set to `False`.
+
+**Example**
+
+For example, if you have a source that sends C2 domains for multiple malware families,
+you can use the following bot's configuration:
+
+```yaml
+parameters:
+  destination_queues: {}
+  # you have to configure your webserver to expose this path for MISP
+  output_dir: "/var/lib/intelmq/bots/your_feed/"
+  misp_org_name: My Organisation
+  misp_org_uuid: Your-Org-UUID
+  interval_event: 1 day
+  grouping_key: "malware.name"
+  bulk_save_count: 100
+  additional_info: "{key} - "
+  flat_events: true
+  attribute_mapping:
+    source.fqdn:
+      comment: malware.name
+      type: domain
+      category: "Network activity"
+      to_ids: true
+  tagging:
+    __all__:
+      - name: tlp:amber
+```
+
+As a result, you will get MISP feed that creates one event per malware family every day. In the event,
+there will be just C2 domains with the IDS flag set and the malware name as comment. In addition, all
+events will be tagged with `tlp:amber` and also have the malware name in the comment, together with
+the information about the time period. The MISP Feed will be saved to disk after accumulating 100 C2
+domains or on reload/restart.
 
 **Usage in MISP**
 
@@ -4969,7 +5286,7 @@ Note: The field "raw" gets base64 decoded if possible. Bytes `\n` and `\r` are r
 
 Launch it like this:
 ```
-</usr/local/bin executable> <bot-id> cli [--tester tester's email]
+</usr/local/bin executable> <bot-id> --cli [--tester tester's email]
 ```
 Example:
 ```bash
@@ -4993,7 +5310,7 @@ You can schedule the batch sending easily with a cron script, I.E. put this into
 
 ```
 # Send the e-mails every day at 6 AM
-0 6 * * *  /usr/local/bin/intelmq.bots.outputs.smtp_batch.output smtp-batch-output-cz cli --ignore-older-than-days 4 --send > /tmp/intelmq-send.log
+0 6 * * *  /usr/local/bin/intelmq.bots.outputs.smtp_batch.output smtp-batch-output-cz cli --ignore-older-than-days 4 --send &> /tmp/intelmq-send.log
 ```
 
 **Module:** `intelmq.bots.outputs.smtp_batch.output`
@@ -5002,7 +5319,35 @@ You can schedule the batch sending easily with a cron script, I.E. put this into
 
 **`alternative_mails`**
 
-(optional, string) Path to CSV in the form `original@email.com,alternative@email.com`. Needed when some of the recipients ask you to forward their e-mails to another address.
+(optional, string) Path to CSV in the form `original@email.com,alternative@email.com`. Needed when some of the recipients ask you to forward their e-mails to another address. Delimit multiple recipients by the semicolon. The field is internally parsed by [Envelope](https://github.com/CZ-NIC/envelope#recipients) so pretty anything is allowed:
+
+```
+original@email.com,alternative@email.com
+original2@email.com,person1@email.com;person2@email.com
+original3@email.com, Mary <person1@example.com>; John <person2@example.com>
+```
+
+**`additional_grouping_keys`**
+
+(optional, list) By-default events are grouped by the E-Mail-Address into buckets. For each bucket one E-Mail is sent. You may add more fields to group-by here to make potentially more buckets.
+Side-effect: Every field that is included in the group-by is ensured to be unique for all events in the bucket and may thus be used for templating.
+Note: The keys listed here refer to the keys in the events (in contrast to the CSV column names).
+Default: `[]`
+
+**`templating`**
+
+(optional, dict) Defines which strings should be processed by jinja2 templating. For templating only keys which are unique for the complete bucket are available. This always includes the destination address (`source.abuse_contact`) and all keys of `additional_grouping_keys` which are present in the bucket. There is one additional key `current_time` available which holds a `datetime.datetime` object of the current (local) time.
+Note: The keys available for templating refer to the keys defined for the events (in contrast to the CSV column names). Still the keys get transformed: each `'.'` gets replaced to `_` in order to make referencing the key in jinja2 easier.
+Default: `{subject: False, body: False, attachment: False}`
+
+**`allowed_fieldnames`**
+
+(optional, list) Lists the fields which are included in the csv file. Every element should be also included in `fieldnames_translation` to avoid crashes.
+
+**`fieldnames_translation`**
+
+(optional, dict) Maps each the name of each field listed in `allowed_fieldnames` to a different name to be used in the csv header.
+**Warning:** The Bot will crash on sending in case a fieldname is present in an event and in `allowed_fieldnames` but not in `fieldnames_translation`.
 
 **`attachment_name`**
 
@@ -5066,7 +5411,7 @@ You can schedule the batch sending easily with a cron script, I.E. put this into
 
 (required, string/array/object) SMTP server information and credentials. See [SMTP parameter](https://github.com/CZ-NIC/envelope#sending) of the envelope module.
 
-Examples: 
+Examples:
 ```yaml
 smtp_server: "mailer"
 smtp_server: {"host": "mailer", "port": 587, "user": "john", "password": "123"}
@@ -5157,7 +5502,7 @@ Client certificates are not supported. If `http_verify_cert` is true, TLS certif
 
 ### SQL <div id="intelmq.bots.outputs.sql.output" />
 
-SQL is the bot responsible to send events to a PostgreSQL, SQLite, or MSSQL Database.
+SQL is the bot responsible to send events to a PostgreSQL, SQLite, MSSQL, or MySQL/MariaDB database.
 
 !!! note
     When activating autocommit, transactions are not used. See: <http://initd.org/psycopg/docs/connection.html#connection.autocommit>
@@ -5174,7 +5519,7 @@ The parameters marked with 'PostgreSQL' will be sent to libpq via psycopg2. Chec
 
 **`engine`**
 
-(required, string) Allowed values are `postgresql`, `sqlite`, or `mssql`.
+(required, string) Allowed values are `postgresql`, `sqlite`, `mssql`, or `mysql`.
 
 **`database`**
 
@@ -5206,7 +5551,7 @@ The parameters marked with 'PostgreSQL' will be sent to libpq via psycopg2. Chec
 
 **`sslmode`**
 
-(optional, string) Database sslmode, Allowed values: `disable`, `allow`, `prefer`, `require`, `verify-ca` or `verify-full`. See: <https://www.postgresql.org/docs/current/static/images/libpq-connect.html#libpq-connect-sslmode>. Defaults to `require`.
+(optional, string, PostgreSQL only) Database sslmode, Allowed values: `disable`, `allow`, `prefer`, `require`, `verify-ca` or `verify-full`. See: <https://www.postgresql.org/docs/current/static/images/libpq-connect.html#libpq-connect-sslmode>. Defaults to `require`.
 
 **`table`**
 

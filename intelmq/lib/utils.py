@@ -35,8 +35,8 @@ import textwrap
 import traceback
 import zipfile
 from sys import version_info
-from typing import (Any, Callable, Dict, Generator, Iterator, Optional,
-                    Sequence, Union)
+from typing import (Any, Callable, Dict, Optional, Union)
+from collections.abc import Generator, Iterator, Sequence
 
 import dateutil.parser
 import dns.resolver
@@ -188,7 +188,7 @@ def base64_encode(value: Union[bytes, str]) -> str:
     return decode(base64.b64encode(encode(value, force=True)), force=True)
 
 
-def flatten_queues(queues: Union[list, Dict]) -> Iterator[str]:
+def flatten_queues(queues: Union[list, dict]) -> Iterator[str]:
     """
     Assure that output value will be a flattened.
 
@@ -538,7 +538,7 @@ def extract_tar(file):
     def extract(filename):
         return tar.extractfile(filename).read()
 
-    return tuple(file.name for file in tar.getmembers()), tar, extract
+    return tuple(file.name for file in tar.getmembers() if file.isfile()), tar, extract
 
 
 def extract_gzip(file):
@@ -547,7 +547,7 @@ def extract_gzip(file):
 
 def extract_zip(file):
     zfp = zipfile.ZipFile(io.BytesIO(file), "r")
-    return zfp.namelist(), zfp, zfp.read
+    return [member.filename for member in zfp.infolist() if not member.is_dir()], zfp, zfp.read
 
 
 def unzip(file: bytes, extract_files: Union[bool, list], logger=None,
@@ -648,7 +648,7 @@ class RewindableFileHandle:
         return self.current_line
 
 
-def object_pair_hook_bots(*args, **kwargs) -> Dict:
+def object_pair_hook_bots(*args, **kwargs) -> dict:
     """
     A object_pair_hook function for the BOTS file to be used in the json's dump functions.
 
@@ -692,6 +692,7 @@ def drop_privileges() -> bool:
     """
     if os.geteuid() == 0:
         try:
+            os.setgroups([group.gr_gid for group in grp.getgrall() if 'intelmq' in group.gr_mem])
             os.setgid(grp.getgrnam('intelmq').gr_gid)
             os.setuid(pwd.getpwnam('intelmq').pw_uid)
         except (OSError, KeyError):
@@ -912,7 +913,7 @@ def list_all_bots() -> dict:
                 name = name.replace(bot_type, '')
 
             bots[module_name.split('.')[2].capitalize()[:-1]][name] = {
-                "module": mod.__name__,
+                "module": bot.name,
                 "description": "Missing description" if not getattr(mod.BOT, '__doc__', None) else textwrap.dedent(mod.BOT.__doc__).strip(),
                 "parameters": keys,
             }

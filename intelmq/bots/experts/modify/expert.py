@@ -9,6 +9,7 @@ Modify Expert bot let's you manipulate all fields with a config file.
 import re
 import sys
 
+from intelmq import VAR_STATE_PATH
 from intelmq.lib.bot import ExpertBot
 from intelmq.lib.utils import load_configuration
 
@@ -17,10 +18,7 @@ def is_re_pattern(value):
     """
     Checks if the given value is a re compiled pattern
     """
-    if sys.version_info > (3, 7):
-        return isinstance(value, re.Pattern)
-    else:
-        return hasattr(value, "pattern")
+    return isinstance(value, re.Pattern)
 
 
 class MatchGroupMapping:
@@ -40,7 +38,7 @@ class MatchGroupMapping:
 class ModifyExpertBot(ExpertBot):
     """Perform arbitrary changes to event's fields based on regular-expression-based rules on different values. See the bot's documentation for some examples"""
     case_sensitive: bool = True
-    configuration_path: str = "/opt/intelmq/var/lib/bots/modify/modify.conf"  # TODO: should be pathlib.Path
+    configuration_path: str = f"{VAR_STATE_PATH}modify/modify.conf"  # TODO: should be pathlib.Path
     maximum_matches = None
     overwrite: bool = True
 

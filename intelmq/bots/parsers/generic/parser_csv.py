@@ -19,7 +19,8 @@ data_type: string
 import csv
 import json
 import re
-from typing import Optional, Union, Iterable
+from typing import Optional, Union
+from collections.abc import Iterable
 
 from intelmq.lib import utils
 from intelmq.lib.bot import ParserBot
@@ -28,7 +29,7 @@ from intelmq.lib.utils import RewindableFileHandle
 from intelmq.lib.datatypes import TimeFormat
 
 DATA_CONVERSIONS = {'json': lambda data: json.loads(data)}
-DOCS = "https://intelmq.readthedocs.io/en/latest/guides/Bots.html#generic-csv-parser"
+DOCS = "https://docs.intelmq.org/latest/user/bots/#generic-csv"
 
 
 class GenericCsvParserBot(ParserBot):

@@ -18,11 +18,11 @@ import intelmq.tests.bots.experts.domain_suffix.test_expert as domain_suffix_exp
 from intelmq.bots.experts.domain_suffix.expert import DomainSuffixExpertBot
 from intelmq.bots.experts.taxonomy.expert import TaxonomyExpertBot
 from intelmq.bots.experts.url.expert import URLExpertBot
-from intelmq.lib.bot import BotLibSettings, Dict39, ExpertBot
+from intelmq.lib.bot import BotLibSettings, ExpertBot
 from intelmq.lib.message import Message, MessageFactory
 from intelmq.tests.lib import test_parser_bot
 
-EXAMPLE_DATA_URL = Dict39({'source.url': 'http://example.com/'})
+EXAMPLE_DATA_URL = {'source.url': 'http://example.com/'}
 EXAMPLE_DATA_URL_OUT = EXAMPLE_DATA_URL | {'source.fqdn': 'example.com',
                                            'source.port': 80,
                                            'source.urlpath': '/',
@@ -32,6 +32,7 @@ EXAMPLE_IP_INPUT = {"source.ip": "192.0.43.7",  # icann.org.
                     "destination.ip": "192.0.43.8",  # iana.org.
                     "time.observation": "2015-01-01T00:00:00+00:00",
                     }
+EXAMPLE_IP_OUTPUT = MessageFactory.from_dict(EXAMPLE_IP_INPUT, default_type='Event')  # adds __type = Event
 
 
 class BrokenInitExpertBot(ExpertBot):
@@ -110,7 +111,7 @@ def test_url_and_taxonomy():
     message = queues_url['output'][0]
     taxonomy_expert = TaxonomyExpertBot('taxonomy', settings=BotLibSettings)
     queues = taxonomy_expert.process_message(message)
-    assert queues['output'] == [Dict39(EXAMPLE_DATA_URL_OUT) | {'classification.taxonomy': 'other', 'classification.type': 'undetermined'}]
+    assert queues['output'] == [EXAMPLE_DATA_URL_OUT | {'classification.taxonomy': 'other', 'classification.type': 'undetermined'}]
 
 
 def test_bot_exception_init():
@@ -130,7 +131,7 @@ def test_bot_multi_message():
 
 def test_bot_raises_and_second_message():
     """
-    The first message raises an error and the second message
+    The first message raises an error and the second message is processed correctly
     This test is based on an issue where the exception-raising message was not cleared from the internal message store of the Bot/Pipeline instance and thus re-used on the second run
     """
     raises_on_first_run = RaisesOnFirstRunExpertBot('raises', settings=BotLibSettings)
@@ -138,7 +139,7 @@ def test_bot_raises_and_second_message():
         raises_on_first_run.process_message(EXAMPLE_DATA_URL)
     queues = raises_on_first_run.process_message(EXAMPLE_IP_INPUT)
     assert len(queues['output']) == 1
-    assertMessageEqual(queues['output'][0], EXAMPLE_IP_INPUT)
+    assertMessageEqual(queues['output'][0], EXAMPLE_IP_OUTPUT)
 
 
 if __name__ == '__main__':  # pragma: no cover

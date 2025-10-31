@@ -13,7 +13,8 @@ import json
 import re
 import warnings
 from collections import defaultdict
-from typing import Any, Dict, Iterable, Optional, Sequence, Union, Tuple
+from typing import Any, Dict, Optional, Union, Tuple
+from collections.abc import Iterable, Sequence
 from pkg_resources import resource_filename
 
 import intelmq.lib.exceptions as exceptions
@@ -48,10 +49,10 @@ class MessageFactory:
             MessageFactory.unserialize
             MessageFactory.serialize
         """
-        if default_type and "__type" not in message:
-            message["__type"] = default_type
+        if not default_type and '__type' not in message:
+            raise ValueError("Message type could not be determined. Input message misses '__type' and parameter 'default_type' not given.")
         try:
-            class_reference = getattr(intelmq.lib.message, message["__type"])
+            class_reference = getattr(intelmq.lib.message, message.get("__type", default_type))
         except AttributeError:
             raise exceptions.InvalidArgument('__type',
                                              got=message["__type"],
@@ -59,6 +60,8 @@ class MessageFactory:
                                              docs=HARMONIZATION_CONF_FILE)
         # don't modify the parameter
         message_copy = message.copy()
+        if default_type and "__type" not in message_copy:
+            message_copy["__type"] = default_type
         del message_copy["__type"]
         return class_reference(message_copy, auto=True, harmonization=harmonization)
 
@@ -98,7 +101,7 @@ class Message(dict):
     _default_value_set = False
 
     def __init__(self, message: Union[dict, tuple] = (), auto: bool = False,
-                 harmonization: dict = None) -> None:
+                 harmonization: dict = None, **_) -> None:
         try:
             classname = message['__type'].lower()
             del message['__type']
@@ -332,7 +335,7 @@ class Message(dict):
         message = json.loads(message_string)
         return message
 
-    def __is_valid_key(self, key: str) -> Tuple[bool, str]:
+    def __is_valid_key(self, key: str) -> tuple[bool, str]:
         try:
             class_name, subitem = self.__get_type_config(key)
         except KeyError:
@@ -497,7 +500,7 @@ class Message(dict):
         """
         dict_eq = super().__eq__(other)
         if dict_eq and issubclass(type(other), Message):
-            type_eq = type(self) == type(other)
+            type_eq = type(self) is type(other)
             harm_eq = self.harmonization_config == other.harmonization_config if hasattr(other, 'harmonization_config') else False
             if type_eq and harm_eq:
                 return True
@@ -522,9 +525,13 @@ class Message(dict):
 
 
 class Event(Message):
-
-    def __init__(self, message: Union[dict, tuple] = (), auto: bool = False,
-                 harmonization: Optional[dict] = None) -> None:
+    def __init__(
+        self,
+        message: Union[dict, tuple] = (),
+        auto: bool = False,
+        harmonization: Optional[dict] = None,
+        copy_collector_provided_fields: Optional[dict] = None,
+    ) -> None:
         """
         Parameters:
             message: Give a report and feed.name, feed.url and
@@ -551,6 +558,12 @@ class Event(Message):
                 template['rtir_id'] = message['rtir_id']
             if 'time.observation' in message:
                 template['time.observation'] = message['time.observation']
+
+            if copy_collector_provided_fields:
+                for key in copy_collector_provided_fields:
+                    if key not in message:
+                        continue
+                    template[key] = message.get(key)
         else:
             template = message
         super().__init__(template, auto, harmonization)
@@ -559,7 +572,7 @@ class Event(Message):
 class Report(Message):
 
     def __init__(self, message: Union[dict, tuple] = (), auto: bool = False,
-                 harmonization: Optional[dict] = None) -> None:
+                 harmonization: Optional[dict] = None, **_) -> None:
         """
         Parameters:
             message: Passed along to Message's and dict's init.

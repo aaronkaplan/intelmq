@@ -197,13 +197,46 @@ The `CacheMixin` provides methods to cache values for bots in a Redis database. 
 - `redis_cache_ttl: int = 15`
 - `redis_cache_password: Optional[str] = None`
 
-and provides the methods:
+and provides the methods to cache key-value pairs:
 
 - `cache_exists`
 - `cache_get`
 - `cache_set`
 - `cache_flush`
 - `cache_get_redis_instance`
+
+and following methods to cache objects in a queue:
+
+- `cache_lpush`
+- `cache_rpop`
+- `cache_llen`.
+
+Caching key-value pairs and queue caching are two different mechanisms. The functions in the
+ first list are designed for arbitrary values, while the latter ones are primarily for temporarily
+ storing messages, but can also handle other data types. You won't see caches from one in the other.
+ For example, if adding a key-value pair using `cache_set`, it does not change the value from
+ `cache_llen`, and if adding an element using `cache_lpush` you cannot use `check_exists` to look for it.
+
+When using queue-based caching, you have to serialize object to a format accepted by Redis/Valkey
+as the underlying storage. For example, to store a message in a queue using bot ID as key, you can
+use code like:
+
+```python
+self.cache_lpush(self.bot_id, self.receive_message().to_json(jsondict_as_string=True))
+```
+
+and to retrieve a message from the cache:
+
+```python
+data = self.cache_pop()
+if data is None:
+    return # handle empty cache
+message = json.loads(data)
+# to use it as Message object
+message_obj = MessageFactory.from_dict(
+    message, harmonization=self.harmonization, default_type="Event"
+)
+```
 
 ### Pipeline Interactions
 
@@ -477,14 +510,15 @@ Additionally, Python's type hints/annotations are used, see PEP484.
 
 ## Testing Pre-releases
 
-### Installation
+The installation procedures is slightly different for the pre-releases.
 
-The installation procedures need to be adapted only a little bit.
+### Installation with packages
 
-For native packages, you can find the unstable packages of the next version
-here: [Installation Unstable Native Packages](https://software.opensuse.org/download.html?project=home%3Asebix%3Aintelmq%3Aunstable&package=intelmq)
-. The unstable only has a limited set of packages, so enabling the stable repository can be activated in parallel. For
-CentOS 8 unstable, the stable repository is required.
+For native packages, you can find the unstable packages of the next version here:
+[Installation Unstable Native Packages](https://software.opensuse.org/download.html?project=home%3Asebix%3Aintelmq%3Aunstable&package=intelmq).
+The unstable repository only has a limited set of packages, so enable the stable repository in parallel.
+
+### Installation with pip
 
 For the installation with pip, use the `--pre` parameter as shown here following command:
 
@@ -492,5 +526,7 @@ For the installation with pip, use the `--pre` parameter as shown here following
 pip3 install --pre intelmq
 ```
 
-All other steps are not different. Please report any issues you find in
-our [Issue Tracker](https://github.com/certtools/intelmq/issues/new).
+### Testing
+
+All other steps are not different per installation variant.
+Please report any issues you find in our [Issue Tracker](https://github.com/certtools/intelmq/issues/new).

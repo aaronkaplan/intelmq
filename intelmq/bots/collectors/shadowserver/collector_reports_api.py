@@ -4,7 +4,7 @@ Shadowserver Reports API Collector Bot
 SPDX-FileCopyrightText: 2020 Intelmq Team <intelmq-team@cert.at>
 SPDX-License-Identifier: AGPL-3.0-or-later
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import hashlib
 import hmac
@@ -29,11 +29,11 @@ class ShadowServerAPICollectorBot(CollectorBot, HttpMixin, CacheMixin):
     Parameters:
         api_key (str): Your Shadowserver API key
         secret (str): Your Shadowserver API secret
-        country (str): DEPRECIATED The mailing list you want to download reports for (i.e. 'austria')
+        country (str): DEPRECATED The mailing list you want to download reports for (i.e. 'austria')
         reports (list):
             A list of strings or a comma-separated list of the mailing lists you want to process.
         types (list):
-            A list of strings or a string of comma-separated values with the names of reporttypes you want to process. If you leave this empty, all the available reports will be downloaded and processed (i.e. 'scan', 'drones', 'intel', 'sandbox_connection', 'sinkhole_combined').
+            A list of strings or a string of comma-separated values with the names of report types you want to process. If you leave this empty, all the available reports will be downloaded and processed (i.e. 'scan', 'drones', 'intel', 'sandbox_connection', 'sinkhole_combined').
     """
 
     country = None
@@ -48,19 +48,27 @@ class ShadowServerAPICollectorBot(CollectorBot, HttpMixin, CacheMixin):
     redis_cache_ttl: int = 864000  # 10 days
     redis_cache_password: Optional[str] = None
     _report_list = []
+    _type_list = []
 
     def init(self):
-        if self.api_key is None:
+        if not self.api_key:
             raise ValueError('No api_key provided.')
-        if self.secret is None:
+        if not self.secret:
             raise ValueError('No secret provided.')
 
         if isinstance(self.reports, str):
-            self._report_list = self.reports.split(',')
+            # if reports is an empty string (or only contains whitespace), behave as if the parameter is not set and select all reports
+            reports = self.reports.strip()
+            self._report_list = reports.split(',') if reports else []
         elif isinstance(self.reports, list):
             self._report_list = self.reports
-
-        if self.country is not None and self.country not in self._report_list:
+        if isinstance(self.types, str):
+            # if types is an empty string (or only contains whitespace), behave as if the parameter is not set and select all types
+            types = self.types.strip()
+            self._type_list = types.split(',') if types else []
+        elif isinstance(self.types, list):
+            self._type_list = self.types
+        if self.country and self.country not in self._report_list:
             self.logger.warn("Deprecated parameter 'country' found. Please use 'reports' instead. The backwards-compatibility will be removed in IntelMQ version 4.0.0.")
             self._report_list.append(self.country)
 
@@ -88,12 +96,11 @@ class ShadowServerAPICollectorBot(CollectorBot, HttpMixin, CacheMixin):
         again.
         """
         if date is None:
-            date = datetime.today().date()
-        daybefore = date - timedelta(2)
-        dayafter = date + timedelta(1)
+            date = datetime.now(timezone.utc).date()
+        begin = date - timedelta(2)
 
         data = self.preamble
-        data += f',"date": "{daybefore.isoformat()}:{dayafter.isoformat()}" '
+        data += f',"date": "{begin.isoformat()}:{date.isoformat()}" '
         if len(self._report_list) > 0:
             data += f',"reports": {json.dumps(self._report_list)}'
         data += '}'
@@ -109,9 +116,8 @@ class ShadowServerAPICollectorBot(CollectorBot, HttpMixin, CacheMixin):
             self.logger.debug('There was an error downloading the reports: %s', reports['error'])
             return None
 
-        if self.types is not None:
-            reports = [report for report in reports if any(rtype in report['file'] for rtype in self.types)]
-
+        if self._type_list:
+            reports = [report for report in reports if any(report['type'] == rtype for rtype in self._type_list)]
         return reports
 
     def _report_download(self, reportid: str):

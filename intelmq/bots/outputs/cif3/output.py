@@ -32,6 +32,7 @@ except ImportError:
     JsonLib = None
 
 from datetime import datetime
+from sys import version_info
 from typing import Optional, List
 
 from intelmq.lib.bot import OutputBot
@@ -82,7 +83,7 @@ class CIF3OutputBot(OutputBot):
     add_feed_provider_as_tag: bool = False
     cif3_feed_confidence: float = 5
     cif3_static_confidence: bool = False
-    cif3_additional_tags: List[str] = []
+    cif3_additional_tags: list[str] = []
     cif3_token: Optional[str] = None
     cif3_url: Optional[str] = None
     fireball: int = 500
@@ -91,6 +92,9 @@ class CIF3OutputBot(OutputBot):
     _is_multithreadable = False
 
     def init(self):
+        raise DeprecationWarning("The CIFv3 API is deprecated and will be remove in IntelMQ version 4.0. See https://lists.cert.at/pipermail/intelmq-users/2024-December/000474.html")
+        if version_info >= (3, 12):
+            raise ValueError("This bot is not compatible with Python >= 3.12. See https://lists.cert.at/pipermail/intelmq-users/2024-December/000474.html")
         try:
             cifsdk_version = int(get_cifsdk_version().get('version').split('.')[0])
         except NameError:

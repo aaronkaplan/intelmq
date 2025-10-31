@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2015 Sebastian Wagner, 2023 CERT.at GmbH
+# SPDX-FileCopyrightText: 2015-2021 nic.at GmbH, 2022 Sebastian Wagner, 2023 CERT.at GmbH, 2025 Institute for Common Good Technology
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -15,6 +15,7 @@ import json
 import os
 import sys
 import tempfile
+from textwrap import dedent
 
 from intelmq import HARMONIZATION_CONF_FILE
 
@@ -133,9 +134,19 @@ def _generate_separated_raws_schema(fields: dict, partition_key: str) -> list:
 
 def generate(harmonization_file=HARMONIZATION_CONF_FILE, skip_events=False,
              separate_raws=False, partition_key=None, skip_or_replace=False,
-             use_jsonb=False):
+             no_jsonb=False):
     FIELDS = {}
-    sql_lines = []
+
+    # ENUM for severity does not only save space, it first and foremost allows for easy sorting by severity (ascending sorting is critical to undefined)
+    sql_lines = dedent("""
+        CREATE TYPE severity_enum AS ENUM (
+            'critical',
+            'high',
+            'medium',
+            'low',
+            'info',
+            'undefined'
+        );""").strip().splitlines()
 
     try:
         print("INFO - Reading %s file" % harmonization_file)
@@ -154,7 +165,9 @@ def generate(harmonization_file=HARMONIZATION_CONF_FILE, skip_events=False,
                              'LowercaseString', 'UppercaseString', 'Registry',
                              'TLP', 'ClassificationTaxonomy',
                              ):
-            if 'length' in value:
+            if field == 'severity':
+                dbtype = 'severity_enum'
+            elif 'length' in value:
                 dbtype = 'varchar({})'.format(value['length'])
             else:
                 dbtype = 'text'
@@ -171,7 +184,7 @@ def generate(harmonization_file=HARMONIZATION_CONF_FILE, skip_events=False,
         elif value['type'] == 'UUID':
             dbtype = 'UUID'
         elif value['type'] in ('JSON', 'JSONDict'):
-            dbtype = 'jsonb' if use_jsonb else 'json'
+            dbtype = 'json' if no_jsonb else 'jsonb'
         else:
             raise ValueError('Unknown type %r.' % value['type'])
 
@@ -213,8 +226,8 @@ def main():
                         help="Path to the harmonization file")
     parser.add_argument("--skip-or-replace", default=False, action="store_true",
                         help="Add IF NOT EXISTS or REPLACE directive to created schemas")
-    parser.add_argument("--jsonb", default=False, action="store_true",
-                        help="Use JSONB type to represent dictionary fields")
+    parser.add_argument("--no-jsonb", action="store_true",
+                        help="Do not use JSONB but JSON type to represent dictionary fields")
     args = parser.parse_args()
 
     OUTPUTFILE = args.outputfile
@@ -232,7 +245,7 @@ def main():
                         separate_raws=args.separate_raws,
                         partition_key=args.partition_key,
                         skip_or_replace=args.skip_or_replace,
-                        use_jsonb=args.jsonb,
+                        no_jsonb=args.no_jsonb,
                         )
         print("INFO - Writing %s file" % OUTPUTFILE)
         fp.write(psql)

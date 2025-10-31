@@ -1,5 +1,5 @@
 <!-- comment
-   SPDX-FileCopyrightText: 2015-2023 Sebastian Wagner
+   SPDX-FileCopyrightText: 2015-2025 Sebastian Wagner
    SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
@@ -10,21 +10,157 @@ This file lists all changes which have an affect on the administration of IntelM
 Please refer to the change log for a full list of changes.
 
 
-3.2.2 Bugfix release (unreleased)
----------------------------------
+3.4.1 Patch release (unreleased)
+--------------------------------
 
 ### Requirements
+Python `>=3.9` is now required, which is available on all platforms supported by IntelMQ.
 
 ### Tools
 
+### Bots
+#### Blueliv
+The bots `intelmq.bots.collectors.blueliv` and `intelmq.bots.collectors.blueliv` are removed as they used an unmaintained library and do not work any more.
+
+#### Viriback
+The Feed *Viriback C2 Tracker* is removed as the feed and website are no longer reachable and seem to be discontinued.
+
 ### Data Format
+To save new fields from IntelMQ Data Format in existing PostgreSQL instances, the following schema
+update is necessary:
+```sql
+CREATE TYPE severity_enum AS ENUM (
+    'critical',
+    'high',
+    'medium',
+    'low',
+    'info',
+    'undefined'
+);
+ALTER TABLE events ADD "product.full_name" text;
+ALTER TABLE events ADD "product.name" text;
+ALTER TABLE events ADD "product.vendor" text;
+ALTER TABLE events ADD "product.version" text;
+ALTER TABLE events ADD "product.vulnerabilities" text;
+ALTER TABLE events ADD severity varchar(10);
+ALTER TABLE events ADD "constituency" text;
+UPDATE events SET severity = (extra ->> 'severity')::severity_enum;
+```
+
+Optionally remove the severity field from the extra fields in existing entries:
+```sql
+UPDATE events SET extra = extra - 'severity';
+```
 
 ### Configuration
 
 ### Libraries
 
 ### Postgres databases
+To switch to the more efficient data type `jsonb` instead of `json`, use the following SQL statement. Data is preserved. JSONB also has more query and data manipulation features than plain JSON.
+```sql
+ALTER TABLE events
+   ALTER COLUMN "extra" SET DATA TYPE jsonb;
+```
 
+
+3.4.0 Feature release (2025-03-14)
+----------------------------------
+
+### Requirements
+Python 3.8 or newer is required.
+
+### Bots
+#### CIF 3 API Output deprecation
+The CIF 3 API Output bot is not compatible with Python version greater or equal to 3.12 and will be removed in the future due to lack of maintenance.
+See https://lists.cert.at/pipermail/intelmq-users/2024-December/000474.html for more information.
+
+#### Twitter Collector removal
+As the bot does not work anymore and uses an unmaintained library, it is removed from IntelMQ.
+Please remove if from your setup.
+
+`intelmqctl check` and `intelmqctl upgrade-config` command warns if you have the bot in use.
+
+#### Twitter Parser renaming
+The Twitter parser is renamed to *IoC Extractor Parser* (`intelmq.bots.parsers.ioc_extractor`).
+`intelmqctl upgrade-config` will automatically adapt the configuration.
+
+The previous module name is left as a stub to load the IoC Extractor parser for backwards-compatibility.
+
+### Packaging
+Packages are now also available  for Ubuntu 24.04.
+To upgrade an Ubuntu 22.04 installation to 24.04 please refer to the Ubuntu documentation: https://documentation.ubuntu.com/server/how-to/software/upgrade-your-release/index.html
+
+
+3.3.1 Bugfix release (2024-09-03)
+---------------------------------
+
+No changes are required by administrators.
+
+
+3.3.0 Feature release (2024-03-01)
+----------------------------------
+
+### Documentation
+The documentation is now available at [docs.intelmq.org](https://docs.intelmq.org/). Documentation has been updated and restructured into User, Administrator and Developer Guide. It provides modern look with various quality of life improvements. Big thanks to to @gethvi.
+We now have a slick, modern mkdocs based documentation. Please do check it out!
+
+
+### Bots
+#### Shadowserver dynamic parser / collector
+
+**Note well**: if you use shadowserver feeds, **please read this section carefully**.
+
+Thanks to shadowserver (@elsif2), we have a new dynamic shadowserver reports API integration. What does it do?
+It connects to the [Shadowserver API](https://www.shadowserver.org/what-we-do/network-reporting/api-documentation/),
+requests a list of all the reports for a specific country and processes the ones that are new.
+
+Motivation for this change:
+
+Shadowserver adds new scans on a nearly weekly basis. IntelMQ's release cycle and the need for a stable release could not keep up with this high intensity of shadowserver parser changes.
+We therefore (thanks to @eslif2) move the shadowserver reports collector and parser to a new, dynamic system. It can:
+
+ - fetch the shadowserver schema from shadowserver (https://interchange.shadowserver.org/intelmq/v1/schema)
+ - dynamically collect new reports (see also https://docs.intelmq.org/latest/user/bots/?h=shadow#shadowserver-reports-api)
+ - parse the new reports
+
+**Note well**: if your IntelMQ system runs in an airgapped environment or if it may only reach out to specific IPs/sites, you should read the notes here:
+https://docs.intelmq.org/latest/user/bots/#shadowserver.
+You will need to download shadowserver-schema.json periodically yourself in this case.
+
+**Note well:**: since dynamic changes are a bit tricky, we defined that there is a schema contract:
+
+> Schema contract
+>
+> Once set in the schema, the classification.identifier, classification.taxonomy, and classification.type fields will remain static for a specific report.
+
+This makes things deterministic again.
+
+#### Alienvault OTX
+
+Fix of a bug where a certain condition would have always evaluated to False. (PR#2449 by qux-bbb. Thanks)
+
+#### AMQP
+Quite a few changes (thanks to Kamil, @gethvi) on AMQP
+
+#### Obsoleted bots
+
+- `intelmq.bots.parsers.netlab_360.parser`: Removed as the feed is discontinued. (#2442 by Filip Pokorný)
+- `intelmq.bots.parsers.webinspektor.parser`: Removed as the feed is discontinued. (#2442 by Filip Pokorný)
+- `intelmq.bots.parsers.sucuri.parser`: Removed as the feed is discontinued. (#2442 by Filip Pokorný)
+
+### General changes and bug fixes
+
+Digital Trust Center fixed a bug where the config was loaded twice in intelmqctl which created quite some speedups. Thanks!
+This speeds up IntelMQ API calls.
+
+### Data Format
+
+Shadowserver dynamic parser (see above).
+
+### General remarks
+
+The full list of changes can be seen in the CHANGELOG.md file.
 
 3.2.1 Bugfix release (2023-08-23)
 ---------------------------------
@@ -59,7 +195,7 @@ Deb-packages of intelmq-api 3.2.0 are delayed for some distributions because of 
 #### Shadowserver Reports API collector
 The misleading `country` parameter has been depreciated and a `reports` parameter has been added.
 The backwards-compatibility will be removed in IntelMQ version 4.0.0.
-See the [Shadowserver Reports API bot's documentation](https://intelmq.readthedocs.io/en/latest/user/bots.html#shadowserver-reports-api).
+See the [Shadowserver Reports API bot's documentation](https://docs.intelmq.org/latest/user/bots/#shadowserver-reports-api).
 
 #### GitHub Collector
 GitHub removed the basic `Username/Password` Authentication in favor of personal access tokens. So the GitHub Collector uses an Personal Access Token for authentication [GitHub Documentation: Generate a personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token)
@@ -76,7 +212,7 @@ IntelMQ previously supported two feeds: "Feodo Tracker IPs" (downloaded as CSV f
 #### Field name checks
 The field names for all data added to messages must match a pre-defined format.
 The check which ensures this, was ineffective prior to this version and is effective again starting with version 3.1.0.
-The [Data format documentation](https://intelmq.readthedocs.io/en/maintenance/dev/data-format.html#rules-for-keys) describes the required format.
+The [Data format documentation](https://docs.intelmq.org/latest/dev/data-format/#rules-for-keys) describes the required format.
 
 ### Logrotate
 The packaged configuration for *logrotate* falsely contained options applying to other programs' log files. This caused wrong ownership of log files.
@@ -172,7 +308,7 @@ New features:
 * negation of arbitrary expressions and expression groups separated by brackets through a prepended `!`, e.g `! src.port :in [80, 443]`
 * non-string values accepted by `add`/`add!`/`update`
 
-The [sieve bot documentation](https://intelmq.readthedocs.io/en/maintenance/user/bots.html#intelmq-bots-experts-sieve-expert) has been updated to reflect on these new changes.
+The [sieve bot documentation](https://docs.intelmq.org/latest/user/bots/#sieve) has been updated to reflect on these new changes.
 
 ### Data format
 The classification scheme has been updated to better match the [Reference Security Incident Taxonomy (RSIT)](https://github.com/enisaeu/Reference-Security-Incident-Taxonomy-Task-Force/). The following labels were renamed, deleted or merged into others:
@@ -307,7 +443,7 @@ The `intelmqctl upgrade-config` command automatically fixes a configuration if t
 
 Shadowserver changed some of their feeds, for more information see [Changes in Sinkhole and Honeypot Report Types and Formats](https://www.shadowserver.org/news/changes-in-sinkhole-and-honeypot-report-types-and-formats/). Support for the legacy feeds has not been removed yet.
 
-The [Shadowserver Parser Bot documentation](https://intelmq.readthedocs.io/en/maintenance/user/bots.html#shadowserver-supported-reports) lists the supported feeds, as well as the legacy feeds.
+The [Shadowserver Parser Bot documentation](https://docs.intelmq.org/latest/user/bots/#shadowserver) lists the supported feeds, as well as the legacy feeds.
 
 
 2.3.2 Bugfix release (2021-04-27)

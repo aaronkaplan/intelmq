@@ -107,6 +107,7 @@ class TestHTTPCollectorBot(test.BotTestCase, unittest.TestCase):
         output['feed.url'] = 'http://localhost/foobar.gz'
         del output['extra.file_name']
         self.assertMessageEqual(0, output)
+        self.assertLogMatches(r'Report downloaded \(29B\).', 'INFO')
 
     def test_zip_auto(self, mocker):
         """
@@ -143,6 +144,25 @@ class TestHTTPCollectorBot(test.BotTestCase, unittest.TestCase):
         self.assertMessageEqual(0, output0)
         self.assertMessageEqual(1, output1)
 
+    def test_zip_subdirs(self, mocker):
+        """
+        Test unzipping when the zip has subdirectories
+        """
+        prepare_mocker(mocker)
+        self.run_bot(parameters={'http_url': 'http://localhost/subdir.zip',
+                                 'name': 'Example feed',
+                                 },
+                     iterations=1)
+
+        output0 = OUTPUT[0].copy()
+        output0['feed.url'] = 'http://localhost/subdir.zip'
+        output0['extra.file_name'] = 'subdir/bar'
+        output1 = OUTPUT[1].copy()
+        output1['feed.url'] = 'http://localhost/subdir.zip'
+        output1['extra.file_name'] = 'subdir/foo'
+        self.assertMessageEqual(0, output0)
+        self.assertMessageEqual(1, output1)
+
     @test.skip_exotic()
     def test_pgp(self, mocker):
         """
@@ -174,6 +194,67 @@ class TestHTTPCollectorBot(test.BotTestCase, unittest.TestCase):
         self.assertLogMatches("Request body: None.", 'DEBUG')
         self.assertLogMatches("Response headers: {'some': 'header'}.", 'DEBUG')
         self.assertLogMatches("Response body: 'Should be in logs'.", 'DEBUG')
+
+
+@requests_mock.Mocker()
+class TestHTTPCollectorBotAuthentication(test.BotTestCase, unittest.TestCase):
+    """
+    HttpMixin setup is called a initialization
+    """
+
+    @classmethod
+    def set_bot(cls):
+        cls.bot_reference = HTTPCollectorBot
+        cls.sysconfig = {'http_url': 'http://localhost/foobar',
+                         'name': 'Example feed',
+                         'http_username': '',
+                         'http_password': '',
+                         'logging_level': 'DEBUG'
+                         }
+
+    def test_empty_auth(self, mocker):
+        """
+        Test that no Authorization is set when username and password are empty strings.
+        """
+        def check_authorization_header(request):
+            print(f'check_authorization_header: {request.headers}')  # show the erroneos headers when the test fails
+            return 'Authorization' not in request.headers
+        # generates a mock address if the Authorization header is empty, otherwise the test fails
+        captured = mocker.register_uri('GET', self.sysconfig['http_url'],
+                            text='Foo Bar',
+                            additional_matcher=check_authorization_header)
+        self.run_bot()
+
+    def test_auth_only_username_or_password(self, mocker):
+        """
+        Test that no Authorization is set only the username is given and password is missing
+        """
+        def check_authorization_header(request):
+            print(f'check_authorization_header: {request.headers}')  # show the erroneos headers when the test fails
+            return 'Authorization' not in request.headers
+        # generates a mock address if the Authorization header is empty, otherwise the test fails
+        captured = mocker.register_uri('GET', self.sysconfig['http_url'],
+                            text='Foo Bar',
+                            additional_matcher=check_authorization_header)
+        log_line = "Either 'http_username' or 'http_password' are given, but for HTTP Authentication, both must be set\."
+        self.run_bot(parameters={'http_username': 'username'}, allowed_warning_count=1)
+        self.assertLogMatches(log_line, 'WARNING')
+        self.run_bot(parameters={'http_password': 'password'}, allowed_warning_count=1)
+        self.assertLogMatches(log_line, 'WARNING')
+
+    def test_auth(self, mocker):
+        """
+        Test the Authorization header when username and password are set.
+        """
+        def check_authorization_header(request):
+            print(f'check_authorization_header: {request.headers}')  # show the erroneos headers when the test fails
+            return request.headers['Authorization'] == 'Basic dXNlcjpwYXNzd29yZA=='
+        # generates a mock address if the Authorization header is correct, otherwise the test fails
+        captured = mocker.register_uri('GET', self.sysconfig['http_url'],
+                            text='Foo Bar',
+                            additional_matcher=check_authorization_header)
+        self.run_bot(parameters={'http_username': 'user',
+                                 'http_password': 'password'})
 
 
 if __name__ == '__main__':  # pragma: no cover

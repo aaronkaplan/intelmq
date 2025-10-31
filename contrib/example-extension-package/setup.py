@@ -28,7 +28,7 @@ for file in botfiles:
     entry_point = '.'.join(file.with_suffix('').parts)
     file = Path(str(file).replace('intelmq/bots', 'mybots/bots'))
     module = '.'.join(file.with_suffix('').parts)
-    BOTS.append('{0} = {1}:BOT.run'.format(entry_point, module))
+    BOTS.append(f'{entry_point} = {module}:BOT.run')
 
 setup(
     name='intelmq-example-extension',
