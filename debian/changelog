@@ -1,8 +1,14 @@
-intelmq (3.4.1~alpha1-1) UNRELEASED; urgency=medium
+intelmq (3.5.1~alpha1-1) UNRELEASED; urgency=medium
 
-  * 3.4.1 Bugfix release
+  * Start new version
 
- -- Sebastian Wagner <sebix@sebix.at>  Fri, 14 Mar 2025 21:44:52 +0100
+ -- Sebastian Wagner <sebix@sebix.at>  Sat, 01 Nov 2025 10:26:54 +0100
+
+intelmq (3.5.0-1) stable; urgency=medium
+
+  * 3.5.0 Feature release
+
+ -- Sebastian Wagner <sebix@sebix.at>  Sat, 01 Nov 2025 08:36:38 +0100
 
 intelmq (3.4.0-1) stable; urgency=medium
 
