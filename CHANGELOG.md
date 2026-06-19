@@ -23,20 +23,31 @@ Please refer to the [NEWS](NEWS.md) for a list of changes which have an affect o
 
 ### Bots
 #### Collectors
+- `intelmq.bots.collectors.http.collector_http`: Add Chunking parameters to handle big files (PR#2684 by Sebastian Wagner).
 
 #### Parsers
+- `intelmq.bots.parsers.microsoft.parser_ctip`: Use the new field `serverity` instead of `extra.severity` (PR#2662 by Sebastian Wagner).
+- `intelmq.bots.parsers.generic_csv.parser_csv`: Handle empty string parameter `columns_required` as unset (PR#2680 by Sebastian Wagner, fixes #2679).
 
 #### Experts
 
 #### Outputs
+- `intelmq.bots.outputs.smtp_batch.output`:
+  - Ignore parameter `bot_id` for parsing parameters (PR#2692 by Lukas Heindl, fixes #2666).
+  - Fix CLI overwriting params over the defaults (PR#2699 by Edvard Rejthar).
 
 ### Documentation
+- Updates to Contrib and Overview pages (PR#2672 by Sebastian Wagner).
 
 ### Packaging
 
 ### Tests
+- `intelmq.tests.bots.parsers.openphish.test_parser_commercial`: Replace dummy key with more obvious dummy key, generate raw from input (PR#2665 by Sebastian Wagner, fixes #2663).
+- `intelmq.tests.bots.experts.gethostbyname.test_expert`: Update IP address (PR#2697 by Sebastian Wagner).
+- `intelmq.lib.test`: Support comparing messages with regular expressions, reducing the workload to adapt to frequently changing externally controlled data like AS names and IP addresses (PR#2700 by Sebastian Wagner).
 
 ### Tools
+- `intelmq.lib.bot_debugger`:  Optionally read input messages from stdin instead of parameter value (PR#2678 by Sebastian Wager).
 
 ### Contrib
 
